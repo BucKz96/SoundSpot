@@ -1,4 +1,11 @@
 import SiteHeader from '../components/SiteHeader'
+<<<<<<< Updated upstream
+=======
+import SearchBar from '../components/SearchBar'
+import MapPreview from '../components/MapPreview'
+import EventList from '../components/EventList'
+import { mockEvents, selectedCity } from './homeData'
+>>>>>>> Stashed changes
 
 function HomePage() {
   return (
