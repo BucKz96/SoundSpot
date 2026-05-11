@@ -1,6 +1,9 @@
 from fastapi import FastAPI
 
+from app.api.router import api_router
+
 app = FastAPI(title="SoundSpot API")
+app.include_router(api_router)
 
 
 @app.get("/health")
