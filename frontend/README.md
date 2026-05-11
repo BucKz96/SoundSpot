@@ -1,16 +1,26 @@
-# React + Vite
+# SoundSpot Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Frontend app built with React + Vite.
 
-Currently, two official plugins are available:
+## Structure convention
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- `src/main.jsx`: app entry point (React mount)
+- `src/App.jsx`: top-level app composition (simple and short)
+- `src/pages/`: page-level components (`HomePage`, later `CityPage`, etc.)
+- `src/components/`: reusable UI components (`SearchBar`, `EventCard`, etc.)
+- `src/services/`: API calls and HTTP helpers
+- `src/config/`: frontend app configuration
 
-## React Compiler
+## Simple rules
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Keep pages focused on composition and page data flow
+- Keep reusable UI in `components`
+- Put fetch/API logic in `services` (not in UI components)
+- Keep `App.jsx` minimal while there is no routing
 
-## Expanding the ESLint configuration
+## Local development
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+```bash
+npm install
+npm run dev
+```
