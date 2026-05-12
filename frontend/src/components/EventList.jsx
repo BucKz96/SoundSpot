@@ -2,7 +2,7 @@ import EventCard from './EventCard'
 
 function EventList({ events }) {
   if (events.length === 0) {
-    return <p>Aucun evenement pour le moment.</p>
+    return null
   }
 
   return (
