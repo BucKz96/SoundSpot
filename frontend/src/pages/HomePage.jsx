@@ -56,12 +56,37 @@ function HomePage() {
         />
         <SearchBar onSearch={handleSearch} loading={loading} />
         <MapPreview />
-        {loading ? <p>Chargement des concerts...</p> : null}
-        {error ? <p>Erreur: {error}</p> : null}
-        {!loading && !error && lastSearchedCity && events.length === 0 ? (
-          <p>Aucun concert trouve pour "{lastSearchedCity}".</p>
+        {loading ? (
+          <div
+            className="status-banner status-banner--loading"
+            role="status"
+            aria-live="polite"
+          >
+            <p className="status-banner__title">Chargement en cours…</p>
+            <p className="status-banner__detail">
+              Récupération des concerts, merci de patienter quelques secondes.
+            </p>
+          </div>
         ) : null}
-        {!loading && !error ? <EventList events={events} /> : null}
+        {error ? (
+          <div className="status-banner status-banner--error" role="alert">
+            <p className="status-banner__title">{"Impossible d'afficher les concerts"}</p>
+            <p className="status-banner__detail">{error}</p>
+            <p className="status-banner__hint">
+              Vérifie que le backend tourne et que ta connexion fonctionne, puis réessaie.
+            </p>
+          </div>
+        ) : null}
+        {!loading && !error ? (
+          <EventList
+            events={events}
+            emptyMessage={
+              lastSearchedCity
+                ? `Aucun concert trouvé pour « ${lastSearchedCity} ». Essaie une autre ville ou une orthographe proche.`
+                : 'Aucun concert à afficher pour le moment.'
+            }
+          />
+        ) : null}
       </div>
     </main>
   )
