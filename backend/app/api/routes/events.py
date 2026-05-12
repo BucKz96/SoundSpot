@@ -5,8 +5,7 @@ from app.schemas.event import EventResponse
 router = APIRouter(prefix="/events", tags=["events"])
 
 
-@router.get("", response_model=list[EventResponse])
-def list_events() -> list[EventResponse]:
+def get_mock_events() -> list[EventResponse]:
     return [
         EventResponse(
             id="evt-001",
@@ -48,3 +47,23 @@ def list_events() -> list[EventResponse]:
             ticket_url="https://example.com/tickets/evt-003",
         ),
     ]
+
+
+@router.get("", response_model=list[EventResponse])
+def list_events() -> list[EventResponse]:
+    return get_mock_events()
+
+
+@router.get("/search", response_model=list[EventResponse])
+def search_events(city: str | None = None) -> list[EventResponse]:
+    events = get_mock_events()
+
+    if not city:
+        return events
+
+    city_query = city.strip().lower()
+
+    if not city_query:
+        return events
+
+    return [event for event in events if event.city.lower() == city_query]
