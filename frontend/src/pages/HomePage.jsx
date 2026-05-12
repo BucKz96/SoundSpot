@@ -1,19 +1,43 @@
 import SiteHeader from '../components/SiteHeader'
-<<<<<<< Updated upstream
-=======
 import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
-import { mockEvents, selectedCity } from './homeData'
->>>>>>> Stashed changes
+import { useEffect, useState } from 'react'
+import { getEvents } from '../services/api'
 
 function HomePage() {
+  const [events, setEvents] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    async function loadEvents() {
+      try {
+        const data = await getEvents()
+        setEvents(data)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadEvents()
+  }, [])
+
   return (
     <main className="home-page">
-      <SiteHeader
-        title="SoundSpot"
-        subtitle="Explore les concerts par ville avec une carte interactive."
-      />
+      <div className="home-layout">
+        <SiteHeader
+          title="SoundSpot"
+          subtitle="Explore les concerts par ville avec une carte interactive."
+        />
+        <SearchBar />
+        <MapPreview />
+        {loading ? <p>Chargement des concerts...</p> : null}
+        {error ? <p>Erreur: {error}</p> : null}
+        {!loading && !error ? <EventList events={events} /> : null}
+      </div>
     </main>
   )
 }
