@@ -1,6 +1,10 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.schemas.event import EventResponse
+from app.services.ticketmaster_service import (
+    TicketmasterAPIError,
+    search_events_by_city,
+)
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -56,14 +60,14 @@ def list_events() -> list[EventResponse]:
 
 @router.get("/search", response_model=list[EventResponse])
 def search_events(city: str | None = None) -> list[EventResponse]:
-    events = get_mock_events()
+    if not city or not city.strip():
+        return get_mock_events()
 
-    if not city:
-        return events
+    city_query = city.strip()
 
-    city_query = city.strip().lower()
-
-    if not city_query:
-        return events
-
-    return [event for event in events if event.city.lower() == city_query]
+    try:
+        return search_events_by_city(city_query)
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except TicketmasterAPIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc

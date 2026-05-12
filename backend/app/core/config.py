@@ -5,6 +5,7 @@ class Settings(BaseSettings):
     app_name: str = "SoundSpot"
     app_env: str = "development"
     frontend_url: str = "http://localhost:5173"
+    ticketmaster_api_key: str = ""
     backend_cors_origins: list[str] = [
         "http://localhost:5173",
         "http://127.0.0.1:5173",
