@@ -29,6 +29,21 @@ function displayTime(time) {
   return t || null
 }
 
+function displayDateParts(date) {
+  const d = (date || '').trim()
+  if (!d) return { day: '--', month: 'Date' }
+
+  const parsedDate = new Date(`${d}T00:00:00`)
+  if (Number.isNaN(parsedDate.getTime())) {
+    return { day: '--', month: 'Date' }
+  }
+
+  return {
+    day: parsedDate.toLocaleDateString('fr-FR', { day: '2-digit' }),
+    month: parsedDate.toLocaleDateString('fr-FR', { month: 'short' }),
+  }
+}
+
 function EventCard({ event }) {
   const title = (event.name || '').trim() || 'Événement sans titre'
   const artist = displayArtist(event.artist)
@@ -36,29 +51,34 @@ function EventCard({ event }) {
   const location = displayCityCountry(event.city, event.country)
   const date = displayDate(event.date)
   const time = displayTime(event.time)
+  const dateParts = displayDateParts(event.date)
   const ticketUrl = (event.ticket_url || '').trim()
 
   return (
     <article className="event-card">
-      <h3 className="event-card__title">{title}</h3>
-      <p className="event-card__artist">{artist}</p>
+      <div className="event-card__topline">
+        <div className="event-card__date-badge" aria-label={date}>
+          <span className="event-card__date-day">{dateParts.day}</span>
+          <span className="event-card__date-month">{dateParts.month}</span>
+        </div>
+        <div className="event-card__heading">
+          <h3 className="event-card__title">{title}</h3>
+          <p className="event-card__artist">{artist}</p>
+        </div>
+      </div>
 
       <dl className="event-card__details">
         <div className="event-card__row">
-          <dt>Salle</dt>
+          <dt>Lieu</dt>
           <dd>{venue}</dd>
         </div>
         <div className="event-card__row">
-          <dt>Lieu</dt>
+          <dt>Ville</dt>
           <dd>{location}</dd>
         </div>
         <div className="event-card__row">
-          <dt>Date</dt>
-          <dd>{date}</dd>
-        </div>
-        <div className="event-card__row">
-          <dt>Heure</dt>
-          <dd>{time || 'Heure non communiquée'}</dd>
+          <dt>Horaire</dt>
+          <dd>{time ? `${date} · ${time}` : date}</dd>
         </div>
       </dl>
 

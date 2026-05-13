@@ -1,3 +1,4 @@
+import AppNavbar from '../components/AppNavbar'
 import SiteHeader from '../components/SiteHeader'
 import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
@@ -48,47 +49,59 @@ function HomePage() {
   }
 
   return (
-    <main className="home-page">
-      <div className="home-layout">
-        <SiteHeader
-          title="SoundSpot"
-          subtitle="Explore les concerts par ville avec une carte interactive."
-        />
-        <SearchBar onSearch={handleSearch} loading={loading} />
-        <MapPreview />
-        {loading ? (
-          <div
-            className="status-banner status-banner--loading"
-            role="status"
-            aria-live="polite"
-          >
-            <p className="status-banner__title">Chargement en cours…</p>
-            <p className="status-banner__detail">
-              Récupération des concerts, merci de patienter quelques secondes.
-            </p>
-          </div>
-        ) : null}
-        {error ? (
-          <div className="status-banner status-banner--error" role="alert">
-            <p className="status-banner__title">{"Impossible d'afficher les concerts"}</p>
-            <p className="status-banner__detail">{error}</p>
-            <p className="status-banner__hint">
-              Vérifie que le backend tourne et que ta connexion fonctionne, puis réessaie.
-            </p>
-          </div>
-        ) : null}
-        {!loading && !error ? (
-          <EventList
-            events={events}
-            emptyMessage={
-              lastSearchedCity
-                ? `Aucun concert trouvé pour « ${lastSearchedCity} ». Essaie une autre ville ou une orthographe proche.`
-                : 'Aucun concert à afficher pour le moment.'
-            }
+    <div className="app-page">
+      <AppNavbar />
+      <main className="home-page" id="main-content">
+        <div className="home-main-inner">
+          <SiteHeader
+            title="Explore les concerts par ville"
+            subtitle="Recherchez une ville et découvrez les événements live disponibles via Ticketmaster."
           />
-        ) : null}
-      </div>
-    </main>
+          <SearchBar onSearch={handleSearch} loading={loading} />
+          {loading ? (
+            <div
+              className="status-banner status-banner--loading"
+              role="status"
+              aria-live="polite"
+            >
+              <p className="status-banner__title">Chargement en cours…</p>
+              <p className="status-banner__detail">
+                Récupération des concerts, merci de patienter quelques secondes.
+              </p>
+            </div>
+          ) : null}
+          {error ? (
+            <div className="status-banner status-banner--error" role="alert">
+              <p className="status-banner__title">{"Impossible d'afficher les concerts"}</p>
+              <p className="status-banner__detail">{error}</p>
+              <p className="status-banner__hint">
+                Vérifie que le backend tourne et que ta connexion fonctionne, puis réessaie.
+              </p>
+            </div>
+          ) : null}
+          <div className="content-panel content-panel--map">
+            <MapPreview
+              events={events}
+              loading={loading}
+              searchedCity={lastSearchedCity}
+            />
+          </div>
+          <div className="content-panel content-panel--events">
+            {!loading && !error ? (
+              <EventList
+                events={events}
+                searchedCity={lastSearchedCity}
+                emptyMessage={
+                  lastSearchedCity
+                    ? `Aucun concert trouvé pour « ${lastSearchedCity} ». Essaie une autre ville ou une orthographe proche.`
+                    : 'Aucun concert à afficher pour le moment.'
+                }
+              />
+            ) : null}
+          </div>
+        </div>
+      </main>
+    </div>
   )
 }
 
