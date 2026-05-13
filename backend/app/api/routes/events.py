@@ -5,6 +5,7 @@ from app.services.ticketmaster_service import (
     TicketmasterAPIError,
     search_events_by_city,
 )
+from app.utils.city_normalizer import normalize_city_name
 
 router = APIRouter(prefix="/events", tags=["events"])
 
@@ -63,7 +64,7 @@ def search_events(city: str | None = None) -> list[EventResponse]:
     if not city or not city.strip():
         return get_mock_events()
 
-    city_query = city.strip()
+    city_query = normalize_city_name(city)
 
     try:
         return search_events_by_city(city_query)
