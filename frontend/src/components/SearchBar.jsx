@@ -10,19 +10,19 @@ function SearchBar({ onSearch, loading }) {
 
   return (
     <form
-      className="search-section"
+      className="search-section search-panel"
       aria-label="Recherche de ville"
       onSubmit={handleSubmit}
     >
       <input
         className="search-input"
         type="text"
-        placeholder="Rechercher une ville"
+        placeholder="Paris, Lyon, London..."
         value={city}
         onChange={(event) => setCity(event.target.value)}
       />
       <button className="search-button" type="submit" disabled={loading}>
-        Rechercher
+        Explorer
       </button>
     </form>
   )
