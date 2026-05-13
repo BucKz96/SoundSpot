@@ -1,9 +1,11 @@
 function SiteHeader({ title, subtitle }) {
   return (
-    <header className="hero">
-      <h1>{title}</h1>
-      <p>{subtitle}</p>
-    </header>
+    <section className="hero" aria-labelledby="hero-title">
+      <h1 id="hero-title" className="hero__title">
+        {title}
+      </h1>
+      <p className="hero__subtitle">{subtitle}</p>
+    </section>
   )
 }
 
