@@ -219,6 +219,34 @@ This endpoint currently returns mock events and is mainly used as a development 
 
 ---
 
+## Deployment notes
+
+The frontend is intended to be deployed on Vercel.
+
+The backend is intended to be deployed on Render.
+
+Backend start command:
+
+```bash
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```
+
+Frontend production environment variable:
+
+```env
+VITE_API_BASE_URL=https://your-render-backend-url.onrender.com
+```
+
+Backend environment variables:
+
+```env
+TICKETMASTER_API_KEY=your_ticketmaster_api_key
+FRONTEND_URL=https://your-vercel-frontend-url.vercel.app
+BACKEND_CORS_ORIGINS=http://localhost:5173,https://your-vercel-frontend-url.vercel.app
+```
+
+---
+
 ## 🧭 Roadmap
 
 ### Done
