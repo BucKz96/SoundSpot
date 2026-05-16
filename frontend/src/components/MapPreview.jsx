@@ -2,8 +2,8 @@ import L from 'leaflet'
 import { useEffect, useMemo } from 'react'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 
-const EUROPE_CENTER = [48.8566, 2.3522]
-const EUROPE_ZOOM = 4
+const DEFAULT_CENTER = [20, 0]
+const DEFAULT_ZOOM = 2
 const CARTO_DARK_TILES_URL =
   'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
 // Swap to dark_all if city and street labels are needed later.
@@ -79,7 +79,7 @@ function MapAutoFit({ events }) {
 
   useEffect(() => {
     if (events.length === 0) {
-      map.setView(EUROPE_CENTER, EUROPE_ZOOM)
+      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
       return
     }
 
@@ -137,65 +137,64 @@ function MapPreview({ events, loading, searchedCity }) {
       </div>
 
       <div className="map-box">
-        {geolocatedEvents.length > 0 ? (
-          <MapContainer
-            center={EUROPE_CENTER}
-            zoom={EUROPE_ZOOM}
-            scrollWheelZoom={false}
-            className="event-map"
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-              subdomains="abcd"
-              url={CARTO_DARK_TILES_URL}
-            />
-            <MapAutoFit events={geolocatedEvents} />
-            {geolocatedEvents.map((event) => {
-              const ticketUrl = (event.ticket_url || '').trim()
+        <MapContainer
+          center={DEFAULT_CENTER}
+          zoom={DEFAULT_ZOOM}
+          scrollWheelZoom={false}
+          className="event-map"
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+            subdomains="abcd"
+            url={CARTO_DARK_TILES_URL}
+          />
+          <MapAutoFit events={geolocatedEvents} />
+          {geolocatedEvents.map((event) => {
+            const ticketUrl = (event.ticket_url || '').trim()
 
-              return (
-                <Marker
-                  key={event.id}
-                  position={[event.latitude, event.longitude]}
-                  icon={markerIcon}
-                >
-                  <Popup>
-                    <article className="event-map-popup">
-                      <h3>{event.name || 'Untitled event'}</h3>
-                      {event.artist ? (
-                        <p className="event-map-popup__artist">{event.artist}</p>
-                      ) : null}
-                      <dl>
-                        <div>
-                          <dt>Venue</dt>
-                          <dd>{event.venue || 'Venue TBA'}</dd>
-                        </div>
-                        <div>
-                          <dt>City</dt>
-                          <dd>{getLocationLabel(event)}</dd>
-                        </div>
-                        <div>
-                          <dt>Time</dt>
-                          <dd>{formatEventTime(event)}</dd>
-                        </div>
-                      </dl>
-                      {ticketUrl ? (
-                        <a href={ticketUrl} target="_blank" rel="noreferrer">
-                          View tickets
-                        </a>
-                      ) : null}
-                    </article>
-                  </Popup>
-                </Marker>
-              )
-            })}
-          </MapContainer>
-        ) : (
+            return (
+              <Marker
+                key={event.id}
+                position={[event.latitude, event.longitude]}
+                icon={markerIcon}
+              >
+                <Popup>
+                  <article className="event-map-popup">
+                    <h3>{event.name || 'Untitled event'}</h3>
+                    {event.artist ? (
+                      <p className="event-map-popup__artist">{event.artist}</p>
+                    ) : null}
+                    <dl>
+                      <div>
+                        <dt>Venue</dt>
+                        <dd>{event.venue || 'Venue TBA'}</dd>
+                      </div>
+                      <div>
+                        <dt>City</dt>
+                        <dd>{getLocationLabel(event)}</dd>
+                      </div>
+                      <div>
+                        <dt>Time</dt>
+                        <dd>{formatEventTime(event)}</dd>
+                      </div>
+                    </dl>
+                    {ticketUrl ? (
+                      <a href={ticketUrl} target="_blank" rel="noreferrer">
+                        View tickets
+                      </a>
+                    ) : null}
+                  </article>
+                </Popup>
+              </Marker>
+            )
+          })}
+        </MapContainer>
+        {geolocatedEvents.length === 0 ? (
           <div className="map-box__empty" role="status">
             <span>{emptyMapTitle}</span>
             <p>{emptyMapMessage}</p>
           </div>
-        )}
+        ) : null}
       </div>
 
       <dl className="map-preview__stats">
