@@ -79,12 +79,18 @@ function MapAutoFit({ events }) {
 
   useEffect(() => {
     if (events.length === 0) {
-      map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
+      map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+        animate: true,
+        duration: 1.1,
+      })
       return
     }
 
     if (events.length === 1) {
-      map.setView([events[0].latitude, events[0].longitude], 12)
+      map.flyTo([events[0].latitude, events[0].longitude], 12, {
+        animate: true,
+        duration: 1.2,
+      })
       return
     }
 
@@ -92,7 +98,9 @@ function MapAutoFit({ events }) {
       events.map((event) => [event.latitude, event.longitude]),
     )
 
-    map.fitBounds(bounds, {
+    map.flyToBounds(bounds, {
+      animate: true,
+      duration: 1.35,
       padding: [36, 36],
       maxZoom: 12,
     })
@@ -106,14 +114,8 @@ function MapPreview({ events, loading, searchedCity }) {
   const countriesCount = getKnownValues(events, 'country').size
   const activeCity = searchedCity || 'Global search'
   const nextDate = loading ? 'Loading...' : getNextDate(events)
-  const eventsLabel = events.length > 1 ? 'concerts' : 'concert'
+  const eventsLabel = events.length === 1 ? 'concert' : 'concerts'
   const countLabel = loading ? 'Searching...' : `${events.length} ${eventsLabel}`
-  const emptyMapTitle = loading ? 'Loading event locations...' : 'No geolocated events yet'
-  const emptyMapMessage = loading
-    ? 'The map will update as soon as events with coordinates are available.'
-    : searchedCity
-      ? 'Search another city or try again when event coordinates are available.'
-      : 'Search a city to display event locations on the map.'
   const geolocatedEvents = useMemo(
     () =>
       events
@@ -189,11 +191,13 @@ function MapPreview({ events, loading, searchedCity }) {
             )
           })}
         </MapContainer>
-        {geolocatedEvents.length === 0 ? (
-          <div className="map-box__empty" role="status">
-            <span>{emptyMapTitle}</span>
-            <p>{emptyMapMessage}</p>
-          </div>
+        {loading ? (
+          <div
+            className="map-loading-bar"
+            role="status"
+            aria-label="Loading events"
+            aria-live="polite"
+          />
         ) : null}
       </div>
 
