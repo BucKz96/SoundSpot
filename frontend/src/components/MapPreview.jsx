@@ -4,11 +4,25 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 
 const DEFAULT_CENTER = [20, 0]
 const DEFAULT_ZOOM = 2
+const CITY_FALLBACK_ZOOM = 10
 const CARTO_DARK_TILES_URL =
   'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
 // Swap to dark_all if city and street labels are needed later.
 // const CARTO_DARK_TILES_URL =
 //   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+
+const CITY_COORDINATES = {
+  amsterdam: { label: 'Amsterdam', latitude: 52.3676, longitude: 4.9041 },
+  barcelona: { label: 'Barcelona', latitude: 41.3874, longitude: 2.1686 },
+  berlin: { label: 'Berlin', latitude: 52.52, longitude: 13.405 },
+  london: { label: 'London', latitude: 51.5072, longitude: -0.1276 },
+  londres: { label: 'London', latitude: 51.5072, longitude: -0.1276 },
+  lyon: { label: 'Lyon', latitude: 45.764, longitude: 4.8357 },
+  madrid: { label: 'Madrid', latitude: 40.4168, longitude: -3.7038 },
+  marseille: { label: 'Marseille', latitude: 43.2965, longitude: 5.3698 },
+  paris: { label: 'Paris', latitude: 48.8566, longitude: 2.3522 },
+  rome: { label: 'Rome', latitude: 41.9028, longitude: 12.4964 },
+}
 
 const markerIcon = L.divIcon({
   className: 'event-map-marker',
@@ -16,6 +30,14 @@ const markerIcon = L.divIcon({
   iconSize: [22, 22],
   iconAnchor: [11, 11],
   popupAnchor: [0, -12],
+})
+
+const approximateMarkerIcon = L.divIcon({
+  className: 'event-map-marker event-map-marker--approximate',
+  html: '<span></span>',
+  iconSize: [26, 26],
+  iconAnchor: [13, 13],
+  popupAnchor: [0, -13],
 })
 
 function getKnownValues(events, field) {
@@ -74,11 +96,36 @@ function formatEventTime(event) {
   return date || time || 'Date TBA'
 }
 
-function MapAutoFit({ events }) {
+function normalizeCityName(city) {
+  return city
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\s+/g, ' ')
+}
+
+function getCityFallback(city) {
+  return CITY_COORDINATES[normalizeCityName(city)]
+}
+
+function MapAutoFit({ events, fallbackLocation }) {
   const map = useMap()
 
   useEffect(() => {
     if (events.length === 0) {
+      if (fallbackLocation) {
+        map.flyTo(
+          [fallbackLocation.latitude, fallbackLocation.longitude],
+          CITY_FALLBACK_ZOOM,
+          {
+            animate: true,
+            duration: 1.2,
+          },
+        )
+        return
+      }
+
       map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
         animate: true,
         duration: 1.1,
@@ -104,7 +151,7 @@ function MapAutoFit({ events }) {
       padding: [36, 36],
       maxZoom: 12,
     })
-  }, [events, map])
+  }, [events, fallbackLocation, map])
 
   return null
 }
@@ -127,6 +174,13 @@ function MapPreview({ events, loading, searchedCity }) {
         })),
     [events],
   )
+  const fallbackLocation = useMemo(() => {
+    if (events.length === 0 || geolocatedEvents.length > 0 || !searchedCity) {
+      return null
+    }
+
+    return getCityFallback(searchedCity) || null
+  }, [events.length, geolocatedEvents.length, searchedCity])
 
   return (
     <section className="map-preview" aria-label="Concert overview">
@@ -150,7 +204,23 @@ function MapPreview({ events, loading, searchedCity }) {
             subdomains="abcd"
             url={CARTO_DARK_TILES_URL}
           />
-          <MapAutoFit events={geolocatedEvents} />
+          <MapAutoFit events={geolocatedEvents} fallbackLocation={fallbackLocation} />
+          {fallbackLocation ? (
+            <Marker
+              icon={approximateMarkerIcon}
+              position={[fallbackLocation.latitude, fallbackLocation.longitude]}
+            >
+              <Popup>
+                <article className="event-map-popup event-map-popup--approximate">
+                  <h3>{fallbackLocation.label}</h3>
+                  <p className="event-map-popup__artist">Approximate city location</p>
+                  <p>
+                    Exact venue coordinates are not available for these events.
+                  </p>
+                </article>
+              </Popup>
+            </Marker>
+          ) : null}
           {geolocatedEvents.map((event) => {
             const ticketUrl = (event.ticket_url || '').trim()
 
