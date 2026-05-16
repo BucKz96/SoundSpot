@@ -111,7 +111,9 @@ function MapPreview({ events, loading, searchedCity }) {
   const emptyMapTitle = loading ? 'Loading event locations...' : 'No geolocated events yet'
   const emptyMapMessage = loading
     ? 'The map will update as soon as events with coordinates are available.'
-    : 'Search another city or try again when event coordinates are available.'
+    : searchedCity
+      ? 'Search another city or try again when event coordinates are available.'
+      : 'Search a city to display event locations on the map.'
   const geolocatedEvents = useMemo(
     () =>
       events
