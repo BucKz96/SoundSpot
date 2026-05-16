@@ -3,46 +3,35 @@ import SiteHeader from '../components/SiteHeader'
 import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
-import { useEffect, useState } from 'react'
-import { getEvents, getEventsByCity } from '../services/api'
+import { useState } from 'react'
+import { getEventsByCity } from '../services/api'
 
 function HomePage() {
   const [events, setEvents] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearchedCity, setLastSearchedCity] = useState('')
 
-  useEffect(() => {
-    async function loadEvents() {
-      try {
-        const data = await getEvents()
-        setEvents(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erreur inconnue')
-      } finally {
-        setLoading(false)
-      }
+  async function handleSearch(city) {
+    const normalizedCity = city.trim()
+
+    if (!normalizedCity) {
+      setEvents([])
+      setLoading(false)
+      setError('')
+      setLastSearchedCity('')
+      return
     }
 
-    loadEvents()
-  }, [])
-
-  async function handleSearch(city) {
     setLoading(true)
     setError('')
-    setLastSearchedCity(city.trim())
+    setLastSearchedCity(normalizedCity)
 
     try {
-      if (!city.trim()) {
-        const allEvents = await getEvents()
-        setEvents(allEvents)
-        return
-      }
-
-      const filteredEvents = await getEventsByCity(city.trim())
+      const filteredEvents = await getEventsByCity(normalizedCity)
       setEvents(filteredEvents)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
