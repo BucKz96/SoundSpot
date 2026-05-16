@@ -52,30 +52,32 @@ function HomePage() {
     <div className="app-page">
       <AppNavbar />
       <main className="home-page" id="main-content">
-        <div className="home-main-inner">
+        <section className="home-main-inner explore-section" id="explore">
           <SiteHeader
-            title="Explore les concerts par ville"
-            subtitle="Recherchez une ville et découvrez les événements live disponibles via Ticketmaster."
+            title="Find live music in any city."
+            subtitle="Search a city, explore real concerts from Ticketmaster, and open ticket links from a clean fullstack web experience."
           />
-          <SearchBar onSearch={handleSearch} loading={loading} />
+          <div className="hero-search">
+            <SearchBar onSearch={handleSearch} loading={loading} />
+          </div>
           {loading ? (
             <div
               className="status-banner status-banner--loading"
               role="status"
               aria-live="polite"
             >
-              <p className="status-banner__title">Chargement en cours…</p>
+              <p className="status-banner__title">Loading events...</p>
               <p className="status-banner__detail">
-                Récupération des concerts, merci de patienter quelques secondes.
+                Fetching live concerts. This can take a few seconds.
               </p>
             </div>
           ) : null}
           {error ? (
             <div className="status-banner status-banner--error" role="alert">
-              <p className="status-banner__title">{"Impossible d'afficher les concerts"}</p>
+              <p className="status-banner__title">Unable to display concerts</p>
               <p className="status-banner__detail">{error}</p>
               <p className="status-banner__hint">
-                Vérifie que le backend tourne et que ta connexion fonctionne, puis réessaie.
+                Check that the backend is running and try again.
               </p>
             </div>
           ) : null}
@@ -93,14 +95,91 @@ function HomePage() {
                 searchedCity={lastSearchedCity}
                 emptyMessage={
                   lastSearchedCity
-                    ? `Aucun concert trouvé pour « ${lastSearchedCity} ». Essaie une autre ville ou une orthographe proche.`
-                    : 'Aucun concert à afficher pour le moment.'
+                    ? `No concerts found for "${lastSearchedCity}". Try another city or a nearby spelling.`
+                    : 'No concerts to display yet.'
                 }
               />
             ) : null}
           </div>
-        </div>
+        </section>
+
+        <section className="info-section" id="how-it-works" aria-labelledby="how-title">
+          <div className="section-heading">
+            <p className="section-kicker">How it works</p>
+            <h2 id="how-title">A simple search flow for live music discovery.</h2>
+          </div>
+          <div className="steps-grid">
+            <article className="step-card">
+              <h3>Search a city</h3>
+              <p>Enter a city name and SoundSpot sends the request to the FastAPI backend.</p>
+            </article>
+            <article className="step-card">
+              <h3>Explore live events</h3>
+              <p>The backend queries Ticketmaster and returns clean event data to the frontend.</p>
+            </article>
+            <article className="step-card">
+              <h3>Open ticket links</h3>
+              <p>Each event card keeps the important venue, city, date and ticket link visible.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="info-section about-section" id="about" aria-labelledby="about-title">
+          <div className="section-heading">
+            <p className="section-kicker">About SoundSpot</p>
+            <h2 id="about-title">A focused way to discover live music by city.</h2>
+          </div>
+          <div className="about-panel">
+            <p>
+              SoundSpot helps users quickly find upcoming concerts in a city, scan
+              the essential event details, and open official ticket links without
+              getting lost in cluttered listings.
+            </p>
+            <ul className="about-list">
+              <li>Search-first experience built for fast city exploration.</li>
+              <li>Clear event cards that keep venue, date and ticket access visible.</li>
+              <li>Responsive dark interface designed for a modern music product feel.</li>
+            </ul>
+            <p className="about-tech">Built with React, FastAPI and Ticketmaster API.</p>
+          </div>
+        </section>
+
+        <section className="info-section contact-section" id="contact" aria-labelledby="contact-title">
+          <div className="section-heading">
+            <p className="section-kicker">Contact / GitHub</p>
+            <h2 id="contact-title">Review the project and follow its evolution.</h2>
+          </div>
+          <div className="contact-panel">
+            <p>
+              This project is designed as a professional fullstack portfolio piece,
+              with frontend and backend deployed independently.
+            </p>
+            <a
+              className="contact-link"
+              href="https://github.com/BucKz96/SoundSpot"
+              target="_blank"
+              rel="noreferrer"
+            >
+              View repository on GitHub
+            </a>
+          </div>
+        </section>
       </main>
+
+      <footer className="app-footer">
+        <div className="app-footer__content">
+          <p>© 2026 SoundSpot. All rights reserved.</p>
+          <span>Built as a fullstack portfolio project.</span>
+        </div>
+        <a
+          className="app-footer__link"
+          href="https://github.com/BucKz96/SoundSpot"
+          target="_blank"
+          rel="noreferrer"
+        >
+          GitHub
+        </a>
+      </footer>
     </div>
   )
 }

@@ -1,13 +1,13 @@
 function displayArtist(artist) {
   const raw = (artist || '').trim()
-  if (!raw) return 'Artiste inconnu'
-  if (raw.toLowerCase() === 'various artists') return 'Plusieurs artistes'
+  if (!raw) return 'Unknown artist'
+  if (raw.toLowerCase() === 'various artists') return 'Various artists'
   return raw
 }
 
 function displayVenue(venue) {
   const v = (venue || '').trim()
-  return v || 'Salle non communiquée'
+  return v || 'Venue TBA'
 }
 
 function displayCityCountry(city, country) {
@@ -16,12 +16,12 @@ function displayCityCountry(city, country) {
   if (c && co) return `${c}, ${co}`
   if (c) return c
   if (co) return co
-  return 'Lieu non précisé'
+  return 'Location TBA'
 }
 
 function displayDate(date) {
   const d = (date || '').trim()
-  return d || 'Date non communiquée'
+  return d || 'Date TBA'
 }
 
 function displayTime(time) {
@@ -39,13 +39,13 @@ function displayDateParts(date) {
   }
 
   return {
-    day: parsedDate.toLocaleDateString('fr-FR', { day: '2-digit' }),
-    month: parsedDate.toLocaleDateString('fr-FR', { month: 'short' }),
+    day: parsedDate.toLocaleDateString('en-US', { day: '2-digit' }),
+    month: parsedDate.toLocaleDateString('en-US', { month: 'short' }),
   }
 }
 
 function EventCard({ event }) {
-  const title = (event.name || '').trim() || 'Événement sans titre'
+  const title = (event.name || '').trim() || 'Untitled event'
   const artist = displayArtist(event.artist)
   const venue = displayVenue(event.venue)
   const location = displayCityCountry(event.city, event.country)
@@ -69,15 +69,15 @@ function EventCard({ event }) {
 
       <dl className="event-card__details">
         <div className="event-card__row">
-          <dt>Lieu</dt>
+          <dt>Venue</dt>
           <dd>{venue}</dd>
         </div>
         <div className="event-card__row">
-          <dt>Ville</dt>
+          <dt>City</dt>
           <dd>{location}</dd>
         </div>
         <div className="event-card__row">
-          <dt>Horaire</dt>
+          <dt>Time</dt>
           <dd>{time ? `${date} · ${time}` : date}</dd>
         </div>
       </dl>
@@ -90,10 +90,10 @@ function EventCard({ event }) {
             target="_blank"
             rel="noopener noreferrer"
           >
-            Voir les billets
+            View tickets
           </a>
         ) : (
-          <span className="event-card__ticket-missing">Billets : lien indisponible</span>
+          <span className="event-card__ticket-missing">Ticket link unavailable</span>
         )}
       </div>
     </article>
