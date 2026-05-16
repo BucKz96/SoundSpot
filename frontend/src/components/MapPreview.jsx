@@ -9,12 +9,12 @@ function getNextDate(events) {
     .sort()
 
   const nextDate = dates[0]
-  if (!nextDate) return 'À confirmer'
+  if (!nextDate) return 'To be confirmed'
 
   const parsedDate = new Date(`${nextDate}T00:00:00`)
   if (Number.isNaN(parsedDate.getTime())) return nextDate
 
-  return parsedDate.toLocaleDateString('fr-FR', {
+  return parsedDate.toLocaleDateString('en-US', {
     day: '2-digit',
     month: 'short',
     year: 'numeric',
@@ -24,16 +24,16 @@ function getNextDate(events) {
 function MapPreview({ events, loading, searchedCity }) {
   const venuesCount = getKnownValues(events, 'venue').size
   const countriesCount = getKnownValues(events, 'country').size
-  const activeCity = searchedCity || 'Recherche globale'
-  const nextDate = loading ? 'Chargement...' : getNextDate(events)
+  const activeCity = searchedCity || 'Global search'
+  const nextDate = loading ? 'Loading...' : getNextDate(events)
   const eventsLabel = events.length > 1 ? 'concerts' : 'concert'
-  const countLabel = loading ? 'Recherche...' : `${events.length} ${eventsLabel}`
+  const countLabel = loading ? 'Searching...' : `${events.length} ${eventsLabel}`
 
   return (
-    <section className="map-preview" aria-label="Aperçu des concerts">
+    <section className="map-preview" aria-label="Concert overview">
       <div className="map-preview__header">
         <div>
-          <p className="map-preview__eyebrow">Aperçu</p>
+          <p className="map-preview__eyebrow">Overview</p>
           <h2>{activeCity}</h2>
         </div>
         <span className="map-preview__count">{countLabel}</span>
@@ -44,22 +44,22 @@ function MapPreview({ events, loading, searchedCity }) {
         <span className="map-box__pin map-box__pin--london" aria-hidden="true" />
         <span className="map-box__pin map-box__pin--berlin" aria-hidden="true" />
         <div className="map-box__label">
-          <span>Zone explorée</span>
+          <span>Explored area</span>
           <strong>{activeCity}</strong>
         </div>
       </div>
 
       <dl className="map-preview__stats">
         <div>
-          <dt>Prochaine date</dt>
+          <dt>Next date</dt>
           <dd>{nextDate}</dd>
         </div>
         <div>
-          <dt>Salles</dt>
+          <dt>Venues</dt>
           <dd>{venuesCount || '—'}</dd>
         </div>
         <div>
-          <dt>Pays</dt>
+          <dt>Countries</dt>
           <dd>{countriesCount || '—'}</dd>
         </div>
       </dl>

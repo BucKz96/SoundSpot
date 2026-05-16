@@ -11,7 +11,7 @@ function SearchBar({ onSearch, loading }) {
   return (
     <form
       className="search-section search-panel"
-      aria-label="Recherche de ville"
+      aria-label="City search"
       onSubmit={handleSubmit}
     >
       <input
@@ -22,7 +22,7 @@ function SearchBar({ onSearch, loading }) {
         onChange={(event) => setCity(event.target.value)}
       />
       <button className="search-button" type="submit" disabled={loading}>
-        Explorer
+        Search
       </button>
     </form>
   )

@@ -5,25 +5,25 @@ function EventList({ events, emptyMessage, searchedCity }) {
     return (
       <section
         className="events-empty"
-        aria-label="Aucun concert"
+        aria-label="No concerts"
         aria-live="polite"
       >
         <p className="events-empty__text">
           {emptyMessage ||
-            'Aucun concert à afficher pour le moment. Essaie une recherche par ville.'}
+            'No concerts to display yet. Try searching for a city.'}
         </p>
       </section>
     )
   }
 
-  const resultLabel = events.length > 1 ? 'événements' : 'événement'
-  const locationLabel = searchedCity ? `à ${searchedCity}` : 'disponibles'
+  const resultLabel = events.length > 1 ? 'events' : 'event'
+  const locationLabel = searchedCity ? `in ${searchedCity}` : 'available'
 
   return (
-    <section className="event-list-section" aria-label="Liste des concerts">
+    <section className="event-list-section" aria-label="Concert list">
       <div className="event-list-section__header">
         <div>
-          <h2 className="event-list-section__title">Concerts trouvés</h2>
+          <h2 className="event-list-section__title">Found concerts</h2>
           <p className="event-list-section__meta">
             {events.length} {resultLabel} {locationLabel}
           </p>
