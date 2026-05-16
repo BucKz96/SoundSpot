@@ -11,6 +11,7 @@ function HomePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearchedCity, setLastSearchedCity] = useState('')
+  const [hasSearched, setHasSearched] = useState(false)
 
   async function handleSearch(city) {
     const normalizedCity = city.trim()
@@ -20,12 +21,14 @@ function HomePage() {
       setLoading(false)
       setError('')
       setLastSearchedCity('')
+      setHasSearched(false)
       return
     }
 
     setLoading(true)
     setError('')
     setLastSearchedCity(normalizedCity)
+    setHasSearched(true)
 
     try {
       const filteredEvents = await getEventsByCity(normalizedCity)
@@ -49,18 +52,6 @@ function HomePage() {
           <div className="hero-search">
             <SearchBar onSearch={handleSearch} loading={loading} />
           </div>
-          {loading ? (
-            <div
-              className="status-banner status-banner--loading"
-              role="status"
-              aria-live="polite"
-            >
-              <p className="status-banner__title">Loading events...</p>
-              <p className="status-banner__detail">
-                Fetching live concerts. This can take a few seconds.
-              </p>
-            </div>
-          ) : null}
           {error ? (
             <div className="status-banner status-banner--error" role="alert">
               <p className="status-banner__title">Unable to display concerts</p>
@@ -77,19 +68,19 @@ function HomePage() {
               searchedCity={lastSearchedCity}
             />
           </div>
-          <div className="content-panel content-panel--events">
-            {!loading && !error ? (
+          {hasSearched && !loading && !error ? (
+            <div className="content-panel content-panel--events">
               <EventList
                 events={events}
                 searchedCity={lastSearchedCity}
                 emptyMessage={
                   lastSearchedCity
-                    ? `No concerts found for "${lastSearchedCity}". Try another city or a nearby spelling.`
+                    ? 'No concerts found for this city.'
                     : 'No concerts to display yet.'
                 }
               />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="info-section" id="how-it-works" aria-labelledby="how-title">
