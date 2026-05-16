@@ -3,46 +3,38 @@ import SiteHeader from '../components/SiteHeader'
 import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
-import { useEffect, useState } from 'react'
-import { getEvents, getEventsByCity } from '../services/api'
+import { useState } from 'react'
+import { getEventsByCity } from '../services/api'
 
 function HomePage() {
   const [events, setEvents] = useState([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearchedCity, setLastSearchedCity] = useState('')
-
-  useEffect(() => {
-    async function loadEvents() {
-      try {
-        const data = await getEvents()
-        setEvents(data)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Erreur inconnue')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    loadEvents()
-  }, [])
+  const [hasSearched, setHasSearched] = useState(false)
 
   async function handleSearch(city) {
+    const normalizedCity = city.trim()
+
+    if (!normalizedCity) {
+      setEvents([])
+      setLoading(false)
+      setError('')
+      setLastSearchedCity('')
+      setHasSearched(false)
+      return
+    }
+
     setLoading(true)
     setError('')
-    setLastSearchedCity(city.trim())
+    setLastSearchedCity(normalizedCity)
+    setHasSearched(true)
 
     try {
-      if (!city.trim()) {
-        const allEvents = await getEvents()
-        setEvents(allEvents)
-        return
-      }
-
-      const filteredEvents = await getEventsByCity(city.trim())
+      const filteredEvents = await getEventsByCity(normalizedCity)
       setEvents(filteredEvents)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
       setLoading(false)
     }
@@ -60,18 +52,6 @@ function HomePage() {
           <div className="hero-search">
             <SearchBar onSearch={handleSearch} loading={loading} />
           </div>
-          {loading ? (
-            <div
-              className="status-banner status-banner--loading"
-              role="status"
-              aria-live="polite"
-            >
-              <p className="status-banner__title">Loading events...</p>
-              <p className="status-banner__detail">
-                Fetching live concerts. This can take a few seconds.
-              </p>
-            </div>
-          ) : null}
           {error ? (
             <div className="status-banner status-banner--error" role="alert">
               <p className="status-banner__title">Unable to display concerts</p>
@@ -88,19 +68,19 @@ function HomePage() {
               searchedCity={lastSearchedCity}
             />
           </div>
-          <div className="content-panel content-panel--events">
-            {!loading && !error ? (
+          {hasSearched && !loading && !error ? (
+            <div className="content-panel content-panel--events">
               <EventList
                 events={events}
                 searchedCity={lastSearchedCity}
                 emptyMessage={
                   lastSearchedCity
-                    ? `No concerts found for "${lastSearchedCity}". Try another city or a nearby spelling.`
+                    ? 'No concerts found for this city.'
                     : 'No concerts to display yet.'
                 }
               />
-            ) : null}
-          </div>
+            </div>
+          ) : null}
         </section>
 
         <section className="info-section" id="how-it-works" aria-labelledby="how-title">
