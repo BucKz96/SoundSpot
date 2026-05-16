@@ -261,12 +261,12 @@ BACKEND_CORS_ORIGINS=http://localhost:5173,https://your-vercel-frontend-url.verc
 - [x] Loading, error and empty states
 - [x] City alias normalization
 - [x] Modern dark UI
+- [x] Deploy the frontend and backend
+- [x] Add an interactive map
+- [x] Display event markers on the map
 
 ### Next steps
 
-- [ ] Deploy the frontend and backend
-- [ ] Add an interactive map
-- [ ] Display event markers on the map
 - [ ] Improve event details
 - [ ] Add Spotify artist enrichment
 - [ ] Add screenshots to the README
