@@ -61,17 +61,17 @@ def list_events() -> list[EventResponse]:
 
 
 @router.get("/search", response_model=list[EventResponse])
-def search_events(
+async def search_events(
     city: str | None = None,
     artist: str | None = None,
 ) -> list[EventResponse]:
     try:
         if city and city.strip():
             city_query = normalize_city_name(city)
-            return search_events_by_city(city_query)
+            return await search_events_by_city(city_query)
 
         if artist and artist.strip():
-            return search_events_by_artist(artist.strip())
+            return await search_events_by_artist(artist.strip())
 
         return get_mock_events()
     except ValueError as exc:
