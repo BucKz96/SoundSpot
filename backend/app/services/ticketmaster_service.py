@@ -21,7 +21,34 @@ def _safe_float(value: object) -> float:
         return 0.0
 
 
-def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
+def _is_valid_coordinate(latitude: float, longitude: float) -> bool:
+    return (
+        -90 <= latitude <= 90
+        and -180 <= longitude <= 180
+        and not (latitude == 0 and longitude == 0)
+    )
+
+
+async def _resolve_event_coordinates(
+    latitude: float,
+    longitude: float,
+    city: str,
+    country_code: str,
+) -> tuple[float, float, bool]:
+    if _is_valid_coordinate(latitude, longitude):
+        return latitude, longitude, False
+
+    if not city:
+        return latitude, longitude, False
+
+    coordinates = await geocode_city(city, country_code)
+    if not coordinates:
+        return latitude, longitude, False
+
+    return coordinates.latitude, coordinates.longitude, True
+
+
+async def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
     embedded = raw.get("_embedded") or {}
     venues = embedded.get("venues") or []
     venue = venues[0] if venues else {}
@@ -40,21 +67,30 @@ def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
     start = dates.get("start") or {}
     local_date = start.get("localDate") or ""
     local_time = start.get("localTime") or ""
+    city = city_obj.get("name") or ""
+    country = country_obj.get("countryCode") or country_obj.get("name") or ""
+    latitude = _safe_float(location.get("latitude"))
+    longitude = _safe_float(location.get("longitude"))
+    latitude, longitude, is_location_approximate = await _resolve_event_coordinates(
+        latitude,
+        longitude,
+        city,
+        country_obj.get("countryCode") or "",
+    )
 
     return EventResponse(
         id=str(raw.get("id") or ""),
         name=raw.get("name") or "Event",
         artist=artist,
-        city=city_obj.get("name") or "",
-        country=country_obj.get("countryCode")
-        or country_obj.get("name")
-        or "",
+        city=city,
+        country=country,
         venue=venue.get("name") or "TBA",
         date=local_date,
         time=local_time,
-        latitude=_safe_float(location.get("latitude")),
-        longitude=_safe_float(location.get("longitude")),
+        latitude=latitude,
+        longitude=longitude,
         ticket_url=raw.get("url") or "",
+        is_location_approximate=is_location_approximate,
     )
 
 
@@ -90,7 +126,10 @@ async def _search_ticketmaster_events(
     if not events_raw:
         return []
 
-    return [_ticketmaster_event_to_response(item) for item in events_raw]
+    return [
+        await _ticketmaster_event_to_response(item)
+        for item in events_raw
+    ]
 
 
 def _dedupe_events(events: list[EventResponse]) -> list[EventResponse]:
