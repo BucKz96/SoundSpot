@@ -16,12 +16,16 @@ _CITY_CACHE: dict[str, CityCoordinates] = {}
 _GEOHASH_ALPHABET = "0123456789bcdefghjkmnpqrstuvwxyz"
 
 
-async def geocode_city(city: str) -> CityCoordinates | None:
+async def geocode_city(
+    city: str,
+    country_code: str | None = None,
+) -> CityCoordinates | None:
     city_query = city.strip()
     if not city_query:
         return None
 
-    cache_key = city_query.lower()
+    country_query = (country_code or "").strip().lower()
+    cache_key = f"{city_query.lower()}:{country_query}"
     if cache_key in _CITY_CACHE:
         return _CITY_CACHE[cache_key]
 
@@ -31,6 +35,10 @@ async def geocode_city(city: str) -> CityCoordinates | None:
         "addressdetails": 1,
         "limit": 1,
     }
+
+    if country_query:
+        params["countrycodes"] = country_query
+
     headers = {"User-Agent": settings.geocoding_user_agent}
 
     try:
