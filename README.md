@@ -2,8 +2,6 @@
   <img src="frontend/src/assets/soundspot-logo.png" alt="SoundSpot logo" width="260" />
 </p>
 
-<h1 align="center">SoundSpot 🎧</h1>
-
 <p align="center">
   Explore live music events by city or artist.
 </p>
