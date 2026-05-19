@@ -6,6 +6,9 @@ class Settings(BaseSettings):
     app_env: str = "development"
     frontend_url: str = "http://localhost:5173"
     ticketmaster_api_key: str = ""
+    city_search_radius_km: int = 30
+    geocoding_url: str = "https://nominatim.openstreetmap.org/search"
+    geocoding_user_agent: str = "SoundSpot/1.0"
     backend_cors_origins: str = (
         "http://localhost:5173,http://127.0.0.1:5173,https://soundspot.vercel.app"
     )

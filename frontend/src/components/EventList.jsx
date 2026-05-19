@@ -1,6 +1,12 @@
 import EventCard from './EventCard'
 
-function EventList({ events, emptyMessage, searchedCity }) {
+function EventList({
+  events,
+  emptyMessage,
+  searchedCity,
+  searchType = 'city',
+  searchValue = '',
+}) {
   if (events.length === 0) {
     return (
       <section
@@ -17,7 +23,10 @@ function EventList({ events, emptyMessage, searchedCity }) {
   }
 
   const resultLabel = events.length > 1 ? 'events' : 'event'
-  const locationLabel = searchedCity ? `in ${searchedCity}` : 'available'
+  const activeSearchValue = searchValue || searchedCity
+  const locationLabel = activeSearchValue
+    ? `${searchType === 'artist' ? 'for' : 'in'} ${activeSearchValue}`
+    : 'available'
 
   return (
     <section className="event-list-section" aria-label="Concert list">
