@@ -20,25 +20,25 @@ function SearchBar({ onSearch, loading }) {
       aria-label="Event search"
       onSubmit={handleSubmit}
     >
-      <div className="search-type-toggle" aria-label="Search type">
-        <button
-          className={`search-type-button ${searchType === 'city' ? 'is-active' : ''}`}
-          type="button"
-          aria-pressed={searchType === 'city'}
-          onClick={() => setSearchType('city')}
-        >
-          City
-        </button>
-        <button
-          className={`search-type-button ${searchType === 'artist' ? 'is-active' : ''}`}
-          type="button"
-          aria-pressed={searchType === 'artist'}
-          onClick={() => setSearchType('artist')}
-        >
-          Artist
-        </button>
-      </div>
       <div className="search-controls">
+        <div className="search-type-toggle" aria-label="Search type">
+          <button
+            className={`search-type-button ${searchType === 'city' ? 'is-active' : ''}`}
+            type="button"
+            aria-pressed={searchType === 'city'}
+            onClick={() => setSearchType('city')}
+          >
+            City
+          </button>
+          <button
+            className={`search-type-button ${searchType === 'artist' ? 'is-active' : ''}`}
+            type="button"
+            aria-pressed={searchType === 'artist'}
+            onClick={() => setSearchType('artist')}
+          >
+            Artist
+          </button>
+        </div>
         <input
           className="search-input"
           type="text"
