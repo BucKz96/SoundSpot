@@ -1,26 +1,51 @@
-# SoundSpot 🎧
+<p align="center">
+  <img src="frontend/src/assets/soundspot-logo.png" alt="SoundSpot logo" width="260" />
+</p>
 
-SoundSpot is a fullstack web application designed to explore live music events by city.
+<h1 align="center">SoundSpot 🎧</h1>
 
-The idea is simple: search for a city, fetch real events from Ticketmaster, and display them in a clean, modern interface. The project is currently in active development and is being built as a portfolio project during my fullstack developer training.
+<p align="center">
+  Explore live music events by city or artist.
+</p>
+
+SoundSpot is a fullstack web application for exploring live music events by city or artist.
+
+The idea is simple: search for a city or an artist, fetch real event data from Ticketmaster, normalize it through a FastAPI backend, and display the results in a clean React interface with an interactive map.
+
+The project is built as a portfolio project during my fullstack developer training, with a focus on clean architecture, API integration, Git workflow, and progressive feature delivery.
+
+---
+
+## 🌐 Live demo
+
+Frontend production URL:
+
+https://soundspot-live.vercel.app
 
 ---
 
 ## 🚀 Current version
 
-**v0.1.0 — Event Search MVP**
+**v0.5.0 — Search improvements**
 
-This first version focuses on the core feature of the application: searching for live music events by city using real external data.
+This version improves the search experience and makes the map more reliable when external event data is incomplete.
 
 ### What works today
 
 - Search events by city
-- Fetch real event data from the Ticketmaster API
+- Search events by artist
+- Switch between City and Artist search modes
+- Fetch real event data from the Ticketmaster Discovery API
 - Normalize external API data into a clean backend response
-- Display events in a React frontend
+- Display events in a modern React frontend
+- Display event locations on an interactive Leaflet map
+- Show event markers and popups
+- Use a world map as the default empty state
 - Handle loading, error and empty states
+- Improve city search with radius-based location search
+- Add fallback coordinates when Ticketmaster does not provide exact event geolocation
 - Support simple city aliases such as `Londres` → `London`
-- Use a modern dark UI with a tech/music-oriented style
+- Use a dark, music-oriented UI
 
 ---
 
@@ -31,14 +56,17 @@ SoundSpot is designed to demonstrate practical fullstack development skills thro
 The main goals are to:
 
 - Build a backend API with FastAPI
-- Connect to an external API
-- Normalize and expose third-party data through a clean internal format
+- Connect to external APIs
+- Protect external API keys through a backend layer
+- Normalize third-party data into a clean internal format
 - Build a frontend with React
 - Manage frontend/backend communication
+- Display dynamic data on an interactive map
+- Handle incomplete external API data gracefully
 - Use Git and GitHub with a feature-branch workflow
-- Prepare the project for deployment and future improvements
+- Deploy a fullstack project with separate frontend and backend hosting
 
-The long-term goal is to turn SoundSpot into an interactive music discovery app with a map-based experience and artist enrichment through Spotify.
+The long-term goal is to turn SoundSpot into a richer live music discovery app with better French event coverage, favorites, and artist enrichment.
 
 ---
 
@@ -50,6 +78,8 @@ The long-term goal is to turn SoundSpot into an interactive music discovery app 
 - Vite
 - JavaScript
 - CSS
+- Leaflet
+- React Leaflet
 
 ### Backend
 
@@ -58,138 +88,106 @@ The long-term goal is to turn SoundSpot into an interactive music discovery app 
 - Pydantic
 - HTTPX
 
-### External API
+### External services
 
 - Ticketmaster Discovery API
+- Geocoding service for location-based search and fallback coordinates
+
+### Deployment
+
+- Vercel for the frontend
+- Render for the backend
 
 ### Tools
 
 - Git
 - GitHub
-- Node.js with `.nvmrc`
+- Node.js
 - Python virtual environment
 
 ---
 
-## ⚙️ Installation
+## 🧭 Architecture overview
 
-### 1. Clone the repository
+SoundSpot uses a separated frontend/backend architecture.
 
-```bash
-git clone https://github.com/BucKz96/SoundSpot.git
-cd SoundSpot
+```txt
+User
+ ↓
+React frontend on Vercel
+ ↓
+FastAPI backend on Render
+ ↓
+Ticketmaster Discovery API
+ ↓
+Normalized event response
+ ↓
+React event list + interactive map
 ```
+
+The frontend does not call Ticketmaster directly.  
+Instead, it calls the internal FastAPI backend.
+
+This keeps the external API key hidden, centralizes the business logic, and allows the backend to normalize incomplete or complex external data before sending it to the frontend.
 
 ---
 
-## 🐍 Backend setup
+## 🔎 Main features
 
-Go to the backend folder:
+### City search
 
-```bash
-cd backend
-```
+Users can search for concerts by city.
 
-Create and activate a virtual environment:
-
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
-
-Install dependencies:
-
-```bash
-pip install -r requirements.txt
-```
-
-Create a local environment file:
-
-```bash
-cp .env.example .env
-```
-
-Add your Ticketmaster API key:
-
-```env
-TICKETMASTER_API_KEY=your_ticketmaster_api_key
-```
-
-Run the backend:
-
-```bash
-uvicorn app.main:app --reload
-```
-
-The API is available at:
-
-```txt
-http://localhost:8000
-```
-
-Swagger documentation is available at:
-
-```txt
-http://localhost:8000/docs
-```
-
----
-
-## ⚛️ Frontend setup
-
-Go to the frontend folder:
-
-```bash
-cd frontend
-```
-
-Use the expected Node.js version:
-
-```bash
-nvm use
-```
-
-Install dependencies:
-
-```bash
-npm install
-```
-
-Create a local environment file:
-
-```bash
-cp .env.example .env
-```
-
-Make sure the frontend points to the backend:
-
-```env
-VITE_API_BASE_URL=http://localhost:8000
-```
-
-Run the frontend:
-
-```bash
-npm run dev
-```
-
-The app is available at:
-
-```txt
-http://localhost:5173
-```
-
----
-
-## 🔎 API overview
-
-### Search events by city
+Example:
 
 ```http
 GET /api/events/search?city=London
 ```
 
-Example response:
+The backend handles city normalization and improves search relevance with a location-based radius search when possible.
+
+This helps avoid strict administrative city limits, where nearby venues can be excluded even though they are relevant to the searched city.
+
+---
+
+### Artist search
+
+Users can also search for events by artist.
+
+Example:
+
+```http
+GET /api/events/search?artist=Coldplay
+```
+
+The frontend uses a single search bar with a City / Artist mode selector.
+
+The results keep the same event format, so the list and map continue to work without a separate rendering flow.
+
+---
+
+### Interactive map
+
+SoundSpot includes an interactive map built with Leaflet and React Leaflet.
+
+The map supports:
+
+- Dark map style
+- Event markers
+- Marker popups
+- Smooth map transitions
+- World map default view
+- Fallback markers when exact event coordinates are missing
+
+When Ticketmaster does not provide exact latitude/longitude for an event, the backend can fallback to an approximate city-level location. This keeps the map useful without pretending the marker is the exact venue position.
+
+---
+
+## 📦 Event response format
+
+The backend returns normalized event objects.
+
+Example:
 
 ```json
 [
@@ -204,46 +202,81 @@ Example response:
     "time": "20:00",
     "latitude": 51.5072,
     "longitude": -0.1276,
-    "ticket_url": "https://example.com"
+    "ticket_url": "https://example.com",
+    "is_location_approximate": false
   }
 ]
 ```
 
-### Development endpoint
-
-```http
-GET /api/events
-```
-
-This endpoint currently returns mock events and is mainly used as a development fallback.
+The goal is to keep the frontend simple.  
+It receives clean data and does not need to understand the full Ticketmaster response structure.
 
 ---
 
-## Deployment notes
+## 🗺️ Version history
 
-The frontend is intended to be deployed on Vercel.
+### v0.1.0 — Event Search MVP
 
-The backend is intended to be deployed on Render.
+- First functional version
+- Search concerts by city
+- Ticketmaster API integration
+- FastAPI backend
+- React frontend
+- Basic dark UI
+- Initial README
 
-Backend start command:
+### v0.2.0 — Deployment setup
 
-```bash
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
-```
+- Frontend deployed on Vercel
+- Backend deployed on Render
+- Public production URL available
+- Environment configuration improved
 
-Frontend production environment variable:
+### v0.3.0 — UI redesign
 
-```env
-VITE_API_BASE_URL=https://your-render-backend-url.onrender.com
-```
+- Professional landing page
+- Improved header and branding
+- SoundSpot logo integration
+- Hero section polish
+- How it works, About and Contact sections
+- Improved footer
+- Favicon added
+- Better spacing and visual consistency
 
-Backend environment variables:
+### v0.4.0 — Interactive map
 
-```env
-TICKETMASTER_API_KEY=your_ticketmaster_api_key
-FRONTEND_URL=https://your-vercel-frontend-url.vercel.app
-BACKEND_CORS_ORIGINS=http://localhost:5173,https://your-vercel-frontend-url.vercel.app
-```
+- Leaflet map integration
+- Event markers
+- Marker popups
+- Dark map style
+- World map default view
+- Smooth map transitions
+- Better loading and empty states
+- City fallback marker for events without exact coordinates
+
+### v0.5.0 — Search improvements
+
+- City / Artist search mode
+- Integrated search mode selector
+- Artist search through the backend
+- Radius-based city search
+- Geocoding fallback for incomplete location data
+- Approximate markers for events without exact coordinates
+- Better handling of Ticketmaster data limitations
+
+---
+
+## ⚠️ Known limitations
+
+Ticketmaster does not always provide complete event coverage or reliable geolocation data, especially for some French events.
+
+This can lead to:
+
+- fewer results for some French cities;
+- events without exact venue coordinates;
+- limited accuracy for map markers when fallback coordinates are used.
+
+A future version should add a complementary French event source, such as OpenAgenda, to improve local coverage.
 
 ---
 
@@ -251,26 +284,24 @@ BACKEND_CORS_ORIGINS=http://localhost:5173,https://your-vercel-frontend-url.verc
 
 ### Done
 
-- [x] Project initialization
 - [x] FastAPI backend
 - [x] React/Vite frontend
 - [x] Frontend/backend communication
-- [x] Event search by city
 - [x] Ticketmaster API integration
 - [x] Event data normalization
+- [x] Search by city
+- [x] Search by artist
+- [x] City / Artist search mode
 - [x] Loading, error and empty states
 - [x] City alias normalization
 - [x] Modern dark UI
-- [x] Deploy the frontend and backend
-- [x] Add an interactive map
-- [x] Display event markers on the map
-
-### Next steps
-
-- [ ] Improve event details
-- [ ] Add Spotify artist enrichment
-- [ ] Add screenshots to the README
-- [ ] Add basic backend tests
+- [x] Frontend deployment
+- [x] Backend deployment
+- [x] Interactive map
+- [x] Event markers
+- [x] Map popups
+- [x] Radius-based city search
+- [x] Fallback coordinates for incomplete geolocation data
 
 ---
 
@@ -278,13 +309,14 @@ BACKEND_CORS_ORIGINS=http://localhost:5173,https://your-vercel-frontend-url.verc
 
 Planned improvements include:
 
-- Interactive map with event markers
-- Artist pages enriched with Spotify data
-- Better city search using geocoding
-- Event filters by date or genre
 - Favorites system
-- Database caching
-- Public demo deployment
+- Better French event coverage with OpenAgenda
+- Multi-source event architecture
+- Event source field in the response
+- Spotify artist enrichment
+- Artist images, genres and popularity
+- Better filters by date, genre or country
+- Backend tests
 
 ---
 
@@ -292,7 +324,18 @@ Planned improvements include:
 
 SoundSpot is being built as a learning and portfolio project during my fullstack developer training.
 
-The goal is not only to build a working application, but also to practice a professional development workflow: clean Git branches, readable code, API integration, documentation, and progressive feature delivery.
+The goal is not only to build a working application, but also to practice a professional development workflow:
+
+- clean Git branches;
+- pull requests;
+- progressive releases;
+- readable code;
+- API integration;
+- deployment;
+- documentation;
+- technical decision-making.
+
+This project is still in active development and will continue to evolve step by step.
 
 ---
 
@@ -300,4 +343,4 @@ The goal is not only to build a working application, but also to practice a prof
 
 Current status: **active development**
 
-Current release: **v0.1.0**
+Current release: **v0.5.0**
