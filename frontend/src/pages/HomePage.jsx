@@ -4,34 +4,39 @@ import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
 import { useState } from 'react'
-import { getEventsByCity } from '../services/api'
+import { getEventsByArtist, getEventsByCity } from '../services/api'
 
 function HomePage() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [lastSearchedCity, setLastSearchedCity] = useState('')
+  const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
   const [hasSearched, setHasSearched] = useState(false)
 
-  async function handleSearch(city) {
-    const normalizedCity = city.trim()
+  async function handleSearch(search) {
+    const searchType = search.type === 'artist' ? 'artist' : 'city'
+    const normalizedValue = search.value.trim()
 
-    if (!normalizedCity) {
+    if (!normalizedValue) {
       setEvents([])
       setLoading(false)
       setError('')
-      setLastSearchedCity('')
+      setLastSearch({ type: searchType, value: '' })
       setHasSearched(false)
       return
     }
 
     setLoading(true)
     setError('')
-    setLastSearchedCity(normalizedCity)
+    setLastSearch({ type: searchType, value: normalizedValue })
     setHasSearched(true)
 
     try {
-      const filteredEvents = await getEventsByCity(normalizedCity)
+      const filteredEvents =
+        searchType === 'artist'
+          ? await getEventsByArtist(normalizedValue)
+          : await getEventsByCity(normalizedValue)
+
       setEvents(filteredEvents)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
@@ -65,17 +70,19 @@ function HomePage() {
             <MapPreview
               events={events}
               loading={loading}
-              searchedCity={lastSearchedCity}
+              searchedCity={lastSearch.type === 'city' ? lastSearch.value : ''}
+              searchLabel={lastSearch.value}
             />
           </div>
           {hasSearched && !loading && !error ? (
             <div className="content-panel content-panel--events">
               <EventList
                 events={events}
-                searchedCity={lastSearchedCity}
+                searchType={lastSearch.type}
+                searchValue={lastSearch.value}
                 emptyMessage={
-                  lastSearchedCity
-                    ? 'No concerts found for this city.'
+                  lastSearch.value
+                    ? `No concerts found for this ${lastSearch.type}.`
                     : 'No concerts to display yet.'
                 }
               />

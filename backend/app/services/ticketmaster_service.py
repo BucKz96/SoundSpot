@@ -56,10 +56,7 @@ def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
     )
 
 
-def search_events_by_city(city: str) -> list[EventResponse]:
-    """
-    Fetch music events from Ticketmaster Discovery API for the given city name.
-    """
+def _search_ticketmaster_events(search_params: dict[str, object]) -> list[EventResponse]:
     api_key = (settings.ticketmaster_api_key or "").strip()
     if not api_key:
         raise ValueError(
@@ -68,9 +65,9 @@ def search_events_by_city(city: str) -> list[EventResponse]:
 
     params = {
         "apikey": api_key,
-        "city": city,
         "classificationName": "Music",
         "size": 50,
+        **search_params,
     }
 
     try:
@@ -90,3 +87,11 @@ def search_events_by_city(city: str) -> list[EventResponse]:
         return []
 
     return [_ticketmaster_event_to_response(item) for item in events_raw]
+
+
+def search_events_by_city(city: str) -> list[EventResponse]:
+    return _search_ticketmaster_events({"city": city})
+
+
+def search_events_by_artist(artist: str) -> list[EventResponse]:
+    return _search_ticketmaster_events({"keyword": artist})

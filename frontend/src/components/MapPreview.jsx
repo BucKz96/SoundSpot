@@ -156,10 +156,10 @@ function MapAutoFit({ events, fallbackLocation }) {
   return null
 }
 
-function MapPreview({ events, loading, searchedCity }) {
+function MapPreview({ events, loading, searchedCity, searchLabel }) {
   const venuesCount = getKnownValues(events, 'venue').size
   const countriesCount = getKnownValues(events, 'country').size
-  const activeCity = searchedCity || 'Global search'
+  const activeSearchLabel = searchLabel || searchedCity || 'Global search'
   const nextDate = loading ? 'Loading...' : getNextDate(events)
   const eventsLabel = events.length === 1 ? 'concert' : 'concerts'
   const countLabel = loading ? 'Searching...' : `${events.length} ${eventsLabel}`
@@ -187,7 +187,7 @@ function MapPreview({ events, loading, searchedCity }) {
       <div className="map-preview__header">
         <div>
           <p className="map-preview__eyebrow">Overview</p>
-          <h2>{activeCity}</h2>
+          <h2>{activeSearchLabel}</h2>
         </div>
         <span className="map-preview__count">{countLabel}</span>
       </div>
