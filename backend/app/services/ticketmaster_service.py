@@ -6,6 +6,7 @@ from app.schemas.event import EventResponse
 from app.services.geocoding_service import encode_geohash, geocode_city
 
 TICKETMASTER_EVENTS_URL = "https://app.ticketmaster.com/discovery/v2/events.json"
+TICKETMASTER_PAGE_SIZE = 50
 
 
 class TicketmasterAPIError(Exception):
@@ -103,17 +104,39 @@ async def _search_ticketmaster_events(
             "Ticketmaster API key is not configured. Set TICKETMASTER_API_KEY in your environment."
         )
 
-    params = {
+    base_params = {
         "apikey": api_key,
         "classificationName": "Music",
-        "size": 50,
+        "size": TICKETMASTER_PAGE_SIZE,
         **search_params,
     }
+    max_events = max(1, settings.ticketmaster_max_events)
+    max_pages = max(1, (max_events + TICKETMASTER_PAGE_SIZE - 1) // TICKETMASTER_PAGE_SIZE)
+    events_raw = []
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(TICKETMASTER_EVENTS_URL, params=params)
-            response.raise_for_status()
+            for page_number in range(max_pages):
+                response = await client.get(
+                    TICKETMASTER_EVENTS_URL,
+                    params={**base_params, "page": page_number},
+                )
+                response.raise_for_status()
+
+                data = response.json()
+                page_events = (data.get("_embedded") or {}).get("events") or []
+                if not page_events:
+                    break
+
+                events_raw.extend(page_events)
+                if len(events_raw) >= max_events:
+                    events_raw = events_raw[:max_events]
+                    break
+
+                page_info = data.get("page") or {}
+                total_pages = page_info.get("totalPages")
+                if isinstance(total_pages, int) and page_number >= total_pages - 1:
+                    break
     except httpx.HTTPStatusError as exc:
         raise TicketmasterAPIError(
             f"Ticketmaster API error (HTTP {exc.response.status_code})."
@@ -121,8 +144,6 @@ async def _search_ticketmaster_events(
     except httpx.RequestError as exc:
         raise TicketmasterAPIError("Could not reach Ticketmaster API.") from exc
 
-    data = response.json()
-    events_raw = (data.get("_embedded") or {}).get("events") or []
     if not events_raw:
         return []
 
