@@ -90,7 +90,7 @@ function EventCard({ event }) {
             target="_blank"
             rel="noopener noreferrer"
           >
-            View tickets
+            View on Ticketmaster
           </a>
         ) : (
           <span className="event-card__ticket-missing">Ticket link unavailable</span>
