@@ -6,6 +6,10 @@ function EventList({
   searchedCity,
   searchType = 'city',
   searchValue = '',
+  totalEventsCount = events.length,
+  visibleEventsCount = events.length,
+  canLoadMore = false,
+  onLoadMore,
 }) {
   if (events.length === 0) {
     return (
@@ -22,7 +26,7 @@ function EventList({
     )
   }
 
-  const resultLabel = events.length > 1 ? 'events' : 'event'
+  const resultLabel = totalEventsCount > 1 ? 'events' : 'event'
   const activeSearchValue = searchValue || searchedCity
   const locationLabel = activeSearchValue
     ? `${searchType === 'artist' ? 'for' : 'in'} ${activeSearchValue}`
@@ -34,7 +38,7 @@ function EventList({
         <div>
           <h2 className="event-list-section__title">Found concerts</h2>
           <p className="event-list-section__meta">
-            {events.length} {resultLabel} {locationLabel}
+            {totalEventsCount} {resultLabel} {locationLabel}
           </p>
         </div>
       </div>
@@ -42,6 +46,20 @@ function EventList({
         {events.map((event) => (
           <EventCard key={event.id} event={event} />
         ))}
+      </div>
+      <div className="event-list-section__footer">
+        <p className="event-list-section__visible-count">
+          Showing {visibleEventsCount} of {totalEventsCount} {resultLabel}
+        </p>
+        {canLoadMore ? (
+          <button
+            className="event-list-section__load-more"
+            type="button"
+            onClick={onLoadMore}
+          >
+            Load more
+          </button>
+        ) : null}
       </div>
     </section>
   )

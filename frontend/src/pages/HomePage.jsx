@@ -6,12 +6,23 @@ import EventList from '../components/EventList'
 import { useState } from 'react'
 import { getEventsByArtist, getEventsByCity } from '../services/api'
 
+const INITIAL_VISIBLE_EVENTS = 12
+const LOAD_MORE_STEP = 12
+
 function HomePage() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
   const [hasSearched, setHasSearched] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_EVENTS)
+
+  const visibleEvents = events.slice(0, visibleCount)
+  const canLoadMore = visibleCount < events.length
+
+  function handleLoadMore() {
+    setVisibleCount((currentCount) => currentCount + LOAD_MORE_STEP)
+  }
 
   async function handleSearch(search) {
     const searchType = search.type === 'artist' ? 'artist' : 'city'
@@ -23,6 +34,7 @@ function HomePage() {
       setError('')
       setLastSearch({ type: searchType, value: '' })
       setHasSearched(false)
+      setVisibleCount(INITIAL_VISIBLE_EVENTS)
       return
     }
 
@@ -30,6 +42,7 @@ function HomePage() {
     setError('')
     setLastSearch({ type: searchType, value: normalizedValue })
     setHasSearched(true)
+    setVisibleCount(INITIAL_VISIBLE_EVENTS)
 
     try {
       const filteredEvents =
@@ -77,9 +90,13 @@ function HomePage() {
           {hasSearched && !loading && !error ? (
             <div className="content-panel content-panel--events">
               <EventList
-                events={events}
+                events={visibleEvents}
                 searchType={lastSearch.type}
                 searchValue={lastSearch.value}
+                totalEventsCount={events.length}
+                visibleEventsCount={visibleEvents.length}
+                canLoadMore={canLoadMore}
+                onLoadMore={handleLoadMore}
                 emptyMessage={
                   lastSearch.value
                     ? `No concerts found for this ${lastSearch.type}.`
