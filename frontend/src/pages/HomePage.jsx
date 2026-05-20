@@ -6,8 +6,7 @@ import EventList from '../components/EventList'
 import { useState } from 'react'
 import { getEventsByArtist, getEventsByCity } from '../services/api'
 
-const INITIAL_VISIBLE_EVENTS = 12
-const LOAD_MORE_STEP = 12
+const EVENTS_PER_PAGE = 12
 
 function HomePage() {
   const [events, setEvents] = useState([])
@@ -15,13 +14,19 @@ function HomePage() {
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
   const [hasSearched, setHasSearched] = useState(false)
-  const [visibleCount, setVisibleCount] = useState(INITIAL_VISIBLE_EVENTS)
+  const [currentPage, setCurrentPage] = useState(1)
 
-  const visibleEvents = events.slice(0, visibleCount)
-  const canLoadMore = visibleCount < events.length
+  const startIndex = (currentPage - 1) * EVENTS_PER_PAGE
+  const endIndex = startIndex + EVENTS_PER_PAGE
+  const paginatedEvents = events.slice(startIndex, endIndex)
+  const totalPages = Math.max(1, Math.ceil(events.length / EVENTS_PER_PAGE))
 
-  function handleLoadMore() {
-    setVisibleCount((currentCount) => currentCount + LOAD_MORE_STEP)
+  function handlePreviousPage() {
+    setCurrentPage((page) => Math.max(1, page - 1))
+  }
+
+  function handleNextPage() {
+    setCurrentPage((page) => Math.min(totalPages, page + 1))
   }
 
   async function handleSearch(search) {
@@ -34,7 +39,7 @@ function HomePage() {
       setError('')
       setLastSearch({ type: searchType, value: '' })
       setHasSearched(false)
-      setVisibleCount(INITIAL_VISIBLE_EVENTS)
+      setCurrentPage(1)
       return
     }
 
@@ -42,7 +47,7 @@ function HomePage() {
     setError('')
     setLastSearch({ type: searchType, value: normalizedValue })
     setHasSearched(true)
-    setVisibleCount(INITIAL_VISIBLE_EVENTS)
+    setCurrentPage(1)
 
     try {
       const filteredEvents =
@@ -90,13 +95,14 @@ function HomePage() {
           {hasSearched && !loading && !error ? (
             <div className="content-panel content-panel--events">
               <EventList
-                events={visibleEvents}
+                events={paginatedEvents}
                 searchType={lastSearch.type}
                 searchValue={lastSearch.value}
                 totalEventsCount={events.length}
-                visibleEventsCount={visibleEvents.length}
-                canLoadMore={canLoadMore}
-                onLoadMore={handleLoadMore}
+                currentPage={currentPage}
+                eventsPerPage={EVENTS_PER_PAGE}
+                onPreviousPage={handlePreviousPage}
+                onNextPage={handleNextPage}
                 emptyMessage={
                   lastSearch.value
                     ? `No concerts found for this ${lastSearch.type}.`
