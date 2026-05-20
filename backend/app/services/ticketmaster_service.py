@@ -6,6 +6,8 @@ from app.schemas.event import EventResponse
 from app.services.geocoding_service import encode_geohash, geocode_city
 
 TICKETMASTER_EVENTS_URL = "https://app.ticketmaster.com/discovery/v2/events.json"
+TICKETMASTER_PAGE_SIZE = 50
+TICKETMASTER_MAX_EVENTS_LIMIT = 150
 
 
 class TicketmasterAPIError(Exception):
@@ -103,17 +105,39 @@ async def _search_ticketmaster_events(
             "Ticketmaster API key is not configured. Set TICKETMASTER_API_KEY in your environment."
         )
 
-    params = {
+    base_params = {
         "apikey": api_key,
         "classificationName": "Music",
-        "size": 50,
+        "size": TICKETMASTER_PAGE_SIZE,
         **search_params,
     }
+    max_events = _get_ticketmaster_max_events()
+    max_pages = max(1, (max_events + TICKETMASTER_PAGE_SIZE - 1) // TICKETMASTER_PAGE_SIZE)
+    events_raw = []
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(TICKETMASTER_EVENTS_URL, params=params)
-            response.raise_for_status()
+            for page_number in range(max_pages):
+                response = await client.get(
+                    TICKETMASTER_EVENTS_URL,
+                    params={**base_params, "page": page_number},
+                )
+                response.raise_for_status()
+
+                data = response.json()
+                page_events = (data.get("_embedded") or {}).get("events") or []
+                if not page_events:
+                    break
+
+                events_raw.extend(page_events)
+                if len(events_raw) >= max_events:
+                    events_raw = events_raw[:max_events]
+                    break
+
+                page_info = data.get("page") or {}
+                total_pages = page_info.get("totalPages")
+                if isinstance(total_pages, int) and page_number >= total_pages - 1:
+                    break
     except httpx.HTTPStatusError as exc:
         raise TicketmasterAPIError(
             f"Ticketmaster API error (HTTP {exc.response.status_code})."
@@ -121,8 +145,6 @@ async def _search_ticketmaster_events(
     except httpx.RequestError as exc:
         raise TicketmasterAPIError("Could not reach Ticketmaster API.") from exc
 
-    data = response.json()
-    events_raw = (data.get("_embedded") or {}).get("events") or []
     if not events_raw:
         return []
 
@@ -146,6 +168,28 @@ def _dedupe_events(events: list[EventResponse]) -> list[EventResponse]:
         unique_events.append(event)
 
     return unique_events
+
+
+def _get_ticketmaster_max_events() -> int:
+    return max(1, min(settings.ticketmaster_max_events, TICKETMASTER_MAX_EVENTS_LIMIT))
+
+
+def _event_sort_key(event: EventResponse) -> tuple[int, str, str]:
+    date = (event.date or "").strip()
+    time = (event.time or "").strip()
+
+    if not date:
+        return (1, "", event.name.casefold())
+
+    return (0, f"{date}T{time or '00:00:00'}", event.name.casefold())
+
+
+def _sort_events_by_date(events: list[EventResponse]) -> list[EventResponse]:
+    return sorted(events, key=_event_sort_key)
+
+
+def _finalize_events(events: list[EventResponse]) -> list[EventResponse]:
+    return _sort_events_by_date(_dedupe_events(events))[:_get_ticketmaster_max_events()]
 
 
 def _normalize_search_text(value: str) -> str:
@@ -212,7 +256,7 @@ async def search_events_by_city(city: str) -> list[EventResponse]:
             radius_events = []
 
         if radius_events:
-            return _dedupe_events(radius_events)
+            return _finalize_events(radius_events)
 
     fallback_events = await _search_ticketmaster_events({"city": city})
 
@@ -223,8 +267,9 @@ async def search_events_by_city(city: str) -> list[EventResponse]:
         )
         fallback_events = [*fallback_events, *keyword_events]
 
-    return _dedupe_events(fallback_events)
+    return _finalize_events(fallback_events)
 
 
 async def search_events_by_artist(artist: str) -> list[EventResponse]:
-    return await _search_ticketmaster_events({"keyword": artist})
+    events = await _search_ticketmaster_events({"keyword": artist})
+    return _finalize_events(events)

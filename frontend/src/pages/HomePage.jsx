@@ -6,12 +6,28 @@ import EventList from '../components/EventList'
 import { useState } from 'react'
 import { getEventsByArtist, getEventsByCity } from '../services/api'
 
+const EVENTS_PER_PAGE = 12
+
 function HomePage() {
   const [events, setEvents] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
   const [hasSearched, setHasSearched] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
+
+  const startIndex = (currentPage - 1) * EVENTS_PER_PAGE
+  const endIndex = startIndex + EVENTS_PER_PAGE
+  const paginatedEvents = events.slice(startIndex, endIndex)
+  const totalPages = Math.max(1, Math.ceil(events.length / EVENTS_PER_PAGE))
+
+  function handlePreviousPage() {
+    setCurrentPage((page) => Math.max(1, page - 1))
+  }
+
+  function handleNextPage() {
+    setCurrentPage((page) => Math.min(totalPages, page + 1))
+  }
 
   async function handleSearch(search) {
     const searchType = search.type === 'artist' ? 'artist' : 'city'
@@ -23,6 +39,7 @@ function HomePage() {
       setError('')
       setLastSearch({ type: searchType, value: '' })
       setHasSearched(false)
+      setCurrentPage(1)
       return
     }
 
@@ -30,6 +47,7 @@ function HomePage() {
     setError('')
     setLastSearch({ type: searchType, value: normalizedValue })
     setHasSearched(true)
+    setCurrentPage(1)
 
     try {
       const filteredEvents =
@@ -77,9 +95,14 @@ function HomePage() {
           {hasSearched && !loading && !error ? (
             <div className="content-panel content-panel--events">
               <EventList
-                events={events}
+                events={paginatedEvents}
                 searchType={lastSearch.type}
                 searchValue={lastSearch.value}
+                totalEventsCount={events.length}
+                currentPage={currentPage}
+                eventsPerPage={EVENTS_PER_PAGE}
+                onPreviousPage={handlePreviousPage}
+                onNextPage={handleNextPage}
                 emptyMessage={
                   lastSearch.value
                     ? `No concerts found for this ${lastSearch.type}.`

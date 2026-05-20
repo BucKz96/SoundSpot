@@ -6,6 +6,11 @@ function EventList({
   searchedCity,
   searchType = 'city',
   searchValue = '',
+  totalEventsCount = events.length,
+  currentPage = 1,
+  eventsPerPage = events.length,
+  onPreviousPage,
+  onNextPage,
 }) {
   if (events.length === 0) {
     return (
@@ -22,11 +27,17 @@ function EventList({
     )
   }
 
-  const resultLabel = events.length > 1 ? 'events' : 'event'
+  const resultLabel = totalEventsCount > 1 ? 'events' : 'event'
   const activeSearchValue = searchValue || searchedCity
   const locationLabel = activeSearchValue
     ? `${searchType === 'artist' ? 'for' : 'in'} ${activeSearchValue}`
     : 'available'
+  const totalPages = Math.max(1, Math.ceil(totalEventsCount / eventsPerPage))
+  const firstVisibleEventNumber = (currentPage - 1) * eventsPerPage + 1
+  const lastVisibleEventNumber = firstVisibleEventNumber + events.length - 1
+  const shouldShowPagination = totalEventsCount > eventsPerPage
+  const canGoPrevious = currentPage > 1
+  const canGoNext = currentPage < totalPages
 
   return (
     <section className="event-list-section" aria-label="Concert list">
@@ -34,7 +45,7 @@ function EventList({
         <div>
           <h2 className="event-list-section__title">Found concerts</h2>
           <p className="event-list-section__meta">
-            {events.length} {resultLabel} {locationLabel}
+            {totalEventsCount} {resultLabel} {locationLabel}
           </p>
         </div>
       </div>
@@ -43,6 +54,41 @@ function EventList({
           <EventCard key={event.id} event={event} />
         ))}
       </div>
+      {shouldShowPagination ? (
+        <div className="event-list-section__pagination">
+          <p className="event-list-section__page-count">
+            Showing {firstVisibleEventNumber}-{lastVisibleEventNumber} of{' '}
+            {totalEventsCount} {resultLabel}
+          </p>
+          <div className="event-list-section__page-actions">
+            <button
+              className="event-list-section__page-button"
+              type="button"
+              onClick={onPreviousPage}
+              disabled={!canGoPrevious}
+            >
+              Previous
+            </button>
+            <span className="event-list-section__page-status">
+              Page {currentPage} of {totalPages}
+            </span>
+            <button
+              className="event-list-section__page-button"
+              type="button"
+              onClick={onNextPage}
+              disabled={!canGoNext}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="event-list-section__pagination">
+          <p className="event-list-section__page-count">
+            Showing {totalEventsCount} of {totalEventsCount} {resultLabel}
+          </p>
+        </div>
+      )}
     </section>
   )
 }

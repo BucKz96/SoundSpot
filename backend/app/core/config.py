@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     frontend_url: str = "http://localhost:5173"
     ticketmaster_api_key: str = ""
     city_search_radius_km: int = 30
+    ticketmaster_max_events: int = 150
     geocoding_url: str = "https://nominatim.openstreetmap.org/search"
     geocoding_user_agent: str = "SoundSpot/1.0"
     backend_cors_origins: str = (
