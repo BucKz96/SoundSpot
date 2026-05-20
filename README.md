@@ -342,3 +342,8 @@ This project is still in active development and will continue to evolve step by 
 Current status: **active development**
 
 Current release: **v0.5.0**
+
+## License
+
+This project is proprietary.  
+The source code may not be copied, modified, distributed, or reused without prior written permission.
