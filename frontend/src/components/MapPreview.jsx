@@ -4,6 +4,7 @@ import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
 
 const DEFAULT_CENTER = [20, 0]
 const DEFAULT_ZOOM = 2
+const MAX_GROUPED_POPUP_EVENTS = 6
 const CARTO_DARK_TILES_URL =
   'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
 // Swap to dark_all if city and street labels are needed later.
@@ -82,6 +83,119 @@ function formatEventTime(event) {
   return date || time || 'Date TBA'
 }
 
+function getCoordinateKey(event) {
+  return `${event.latitude.toFixed(6)},${event.longitude.toFixed(6)}`
+}
+
+function groupEventsByCoordinates(events) {
+  const groups = new Map()
+
+  events.forEach((event) => {
+    const key = getCoordinateKey(event)
+    const existingGroup = groups.get(key)
+
+    if (existingGroup) {
+      existingGroup.events.push(event)
+      existingGroup.isLocationApproximate =
+        existingGroup.isLocationApproximate || event.is_location_approximate
+      return
+    }
+
+    groups.set(key, {
+      key,
+      latitude: event.latitude,
+      longitude: event.longitude,
+      isLocationApproximate: Boolean(event.is_location_approximate),
+      events: [event],
+    })
+  })
+
+  return Array.from(groups.values())
+}
+
+function SingleEventPopup({ event }) {
+  const ticketUrl = (event.ticket_url || '').trim()
+
+  return (
+    <article
+      className={`event-map-popup ${
+        event.is_location_approximate ? 'event-map-popup--approximate' : ''
+      }`}
+    >
+      <h3>{event.name || 'Untitled event'}</h3>
+      {event.artist ? (
+        <p className="event-map-popup__artist">{event.artist}</p>
+      ) : null}
+      <dl>
+        <div>
+          <dt>Venue</dt>
+          <dd>{event.venue || 'Venue TBA'}</dd>
+        </div>
+        <div>
+          <dt>City</dt>
+          <dd>{getLocationLabel(event)}</dd>
+        </div>
+        <div>
+          <dt>Time</dt>
+          <dd>{formatEventTime(event)}</dd>
+        </div>
+      </dl>
+      {event.is_location_approximate ? (
+        <p>Approximate city location</p>
+      ) : null}
+      {ticketUrl ? (
+        <a href={ticketUrl} target="_blank" rel="noreferrer">
+          View on Ticketmaster
+        </a>
+      ) : null}
+    </article>
+  )
+}
+
+function GroupedEventsPopup({ events, isLocationApproximate }) {
+  const visibleEvents = events.slice(0, MAX_GROUPED_POPUP_EVENTS)
+  const remainingEventsCount = events.length - visibleEvents.length
+  const eventLabel = events.length === 1 ? 'event' : 'events'
+
+  return (
+    <article
+      className={`event-map-popup event-map-popup--group ${
+        isLocationApproximate ? 'event-map-popup--approximate' : ''
+      }`}
+    >
+      <h3>
+        {events.length} {eventLabel} at this location
+      </h3>
+      {isLocationApproximate ? (
+        <p>Approximate city location</p>
+      ) : null}
+      <ul className="event-map-popup__event-list">
+        {visibleEvents.map((event) => {
+          const ticketUrl = (event.ticket_url || '').trim()
+
+          return (
+            <li key={event.id || `${event.name}-${event.date}`}>
+              <h4>{event.name || 'Untitled event'}</h4>
+              {event.artist ? (
+                <p className="event-map-popup__artist">{event.artist}</p>
+              ) : null}
+              <p>{formatEventTime(event)}</p>
+              {ticketUrl ? (
+                <a href={ticketUrl} target="_blank" rel="noreferrer">
+                  View on Ticketmaster
+                </a>
+              ) : null}
+            </li>
+          )
+        })}
+      </ul>
+      {remainingEventsCount > 0 ? (
+        <p>{remainingEventsCount} more events at this location</p>
+      ) : null}
+    </article>
+  )
+}
+
 function MapAutoFit({ events }) {
   const map = useMap()
 
@@ -135,6 +249,11 @@ function MapPreview({ events, loading, searchedCity, searchLabel }) {
         })),
     [events],
   )
+  const groupedEventLocations = useMemo(
+    () => groupEventsByCoordinates(geolocatedEvents),
+    [geolocatedEvents],
+  )
+
   return (
     <section className="map-preview" aria-label="Concert overview">
       <div className="map-preview__header">
@@ -157,51 +276,23 @@ function MapPreview({ events, loading, searchedCity, searchLabel }) {
             subdomains="abcd"
             url={CARTO_DARK_TILES_URL}
           />
-          <MapAutoFit events={geolocatedEvents} />
-          {geolocatedEvents.map((event) => {
-            const ticketUrl = (event.ticket_url || '').trim()
-
+          <MapAutoFit events={groupedEventLocations} />
+          {groupedEventLocations.map((group) => {
             return (
               <Marker
-                key={event.id}
-                position={[event.latitude, event.longitude]}
-                icon={event.is_location_approximate ? approximateMarkerIcon : markerIcon}
+                key={group.key}
+                position={[group.latitude, group.longitude]}
+                icon={group.isLocationApproximate ? approximateMarkerIcon : markerIcon}
               >
                 <Popup>
-                  <article
-                    className={`event-map-popup ${
-                      event.is_location_approximate
-                        ? 'event-map-popup--approximate'
-                        : ''
-                    }`}
-                  >
-                    <h3>{event.name || 'Untitled event'}</h3>
-                    {event.artist ? (
-                      <p className="event-map-popup__artist">{event.artist}</p>
-                    ) : null}
-                    <dl>
-                      <div>
-                        <dt>Venue</dt>
-                        <dd>{event.venue || 'Venue TBA'}</dd>
-                      </div>
-                      <div>
-                        <dt>City</dt>
-                        <dd>{getLocationLabel(event)}</dd>
-                      </div>
-                      <div>
-                        <dt>Time</dt>
-                        <dd>{formatEventTime(event)}</dd>
-                      </div>
-                    </dl>
-                    {event.is_location_approximate ? (
-                      <p>Approximate city location</p>
-                    ) : null}
-                    {ticketUrl ? (
-                      <a href={ticketUrl} target="_blank" rel="noreferrer">
-                        View tickets
-                      </a>
-                    ) : null}
-                  </article>
+                  {group.events.length === 1 ? (
+                    <SingleEventPopup event={group.events[0]} />
+                  ) : (
+                    <GroupedEventsPopup
+                      events={group.events}
+                      isLocationApproximate={group.isLocationApproximate}
+                    />
+                  )}
                 </Popup>
               </Marker>
             )
