@@ -14,3 +14,4 @@ class EventResponse(BaseModel):
     longitude: float
     ticket_url: str
     is_location_approximate: bool = False
+    source: str = "ticketmaster"
