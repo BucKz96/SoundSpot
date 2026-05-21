@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.event import EventResponse
+from app.services.event_aggregator_service import (
+    EventAggregationError,
+    search_events_by_city_across_sources,
+)
 from app.services.ticketmaster_service import (
     TicketmasterAPIError,
     search_events_by_artist,
-    search_events_by_city,
 )
 from app.utils.city_normalizer import normalize_city_name
 
@@ -68,7 +71,7 @@ async def search_events(
     try:
         if city and city.strip():
             city_query = normalize_city_name(city)
-            return await search_events_by_city(city_query)
+            return await search_events_by_city_across_sources(city_query)
 
         if artist and artist.strip():
             return await search_events_by_artist(artist.strip())
@@ -77,4 +80,6 @@ async def search_events(
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except TicketmasterAPIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except EventAggregationError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
