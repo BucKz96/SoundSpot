@@ -1,3 +1,5 @@
+import ProviderBadge from './ProviderBadge'
+
 function displayArtist(artist) {
   const raw = (artist || '').trim()
   if (!raw) return 'Unknown artist'
@@ -83,18 +85,11 @@ function EventCard({ event }) {
       </dl>
 
       <div className="event-card__actions">
-        {ticketUrl ? (
-          <a
-            className="event-card__ticket-link"
-            href={ticketUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            View on Ticketmaster
-          </a>
-        ) : (
-          <span className="event-card__ticket-missing">Ticket link unavailable</span>
-        )}
+        <ProviderBadge
+          source={event.source}
+          href={ticketUrl}
+          unavailable={!ticketUrl}
+        />
       </div>
     </article>
   )

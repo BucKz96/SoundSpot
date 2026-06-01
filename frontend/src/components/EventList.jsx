@@ -16,12 +16,12 @@ function EventList({
     return (
       <section
         className="events-empty"
-        aria-label="No concerts"
+        aria-label="No events"
         aria-live="polite"
       >
         <p className="events-empty__text">
           {emptyMessage ||
-            'No concerts to display yet. Try searching for a city.'}
+            'No events to display yet. Try searching for a city.'}
         </p>
       </section>
     )
@@ -40,10 +40,10 @@ function EventList({
   const canGoNext = currentPage < totalPages
 
   return (
-    <section className="event-list-section" aria-label="Concert list">
+    <section className="event-list-section" aria-label="Event list">
       <div className="event-list-section__header">
         <div>
-          <h2 className="event-list-section__title">Found concerts</h2>
+          <h2 className="event-list-section__title">Found events</h2>
           <p className="event-list-section__meta">
             {totalEventsCount} {resultLabel} {locationLabel}
           </p>
