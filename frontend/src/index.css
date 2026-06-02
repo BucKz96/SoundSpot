@@ -228,7 +228,6 @@ body::before {
   border: 0;
   border-radius: 0;
   padding: 0;
-  min-height: 12rem;
 }
 
 /* Search */
@@ -325,23 +324,24 @@ body::before {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  border: 1px solid rgba(34, 211, 238, 0.34);
+  gap: 0.46rem;
+  border: 1px solid rgba(34, 211, 238, 0.3);
   border-radius: var(--radius-sm);
-  padding: 0.84rem 1.45rem;
+  padding: 0 1.42rem;
   font-size: 0.95rem;
   font-weight: 700;
   font-family: inherit;
+  line-height: 1;
   cursor: pointer;
   color: var(--text-primary);
   background: linear-gradient(
     135deg,
-    rgba(34, 211, 238, 0.18) 0%,
-    rgba(139, 92, 246, 0.24) 52%,
-    rgba(34, 211, 238, 0.14) 100%
+    rgba(34, 211, 238, 0.16) 0%,
+    rgba(139, 92, 246, 0.22) 52%,
+    rgba(34, 211, 238, 0.13) 100%
   );
   box-shadow:
-    0 0.65rem 1.45rem rgba(34, 211, 238, 0.1),
+    0 0.55rem 1.25rem rgba(34, 211, 238, 0.08),
     0 0 0 1px rgba(255, 255, 255, 0.045) inset;
   transition:
     transform 0.16s ease,
@@ -352,16 +352,16 @@ body::before {
 }
 
 .search-button:hover:not(:disabled) {
-  transform: translateY(-0.5px);
-  border-color: rgba(34, 211, 238, 0.46);
+  transform: translateY(-0.25px);
+  border-color: rgba(34, 211, 238, 0.42);
   background: linear-gradient(
     135deg,
-    rgba(34, 211, 238, 0.22) 0%,
-    rgba(139, 92, 246, 0.26) 52%,
-    rgba(34, 211, 238, 0.17) 100%
+    rgba(34, 211, 238, 0.19) 0%,
+    rgba(139, 92, 246, 0.24) 52%,
+    rgba(34, 211, 238, 0.15) 100%
   );
   box-shadow:
-    0 0.75rem 1.65rem rgba(34, 211, 238, 0.14),
+    0 0.65rem 1.4rem rgba(34, 211, 238, 0.12),
     0 0 0 1px rgba(255, 255, 255, 0.055) inset;
 }
 
@@ -377,12 +377,12 @@ body::before {
 
 .search-button:focus-visible {
   outline: none;
-  box-shadow: var(--focus-ring), 0 0.65rem 1.45rem rgba(34, 211, 238, 0.1);
+  box-shadow: var(--focus-ring), 0 0.55rem 1.25rem rgba(34, 211, 238, 0.08);
 }
 
 .search-button__icon {
-  width: 1.25rem;
-  height: 1.25rem;
+  width: 1.28rem;
+  height: 1.28rem;
   object-fit: contain;
   flex-shrink: 0;
 }
@@ -748,7 +748,6 @@ body::before {
 
 .event-list {
   width: min(100%, 72rem);
-  min-height: 72rem;
   margin-inline: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(18rem, 22.5rem));
@@ -757,6 +756,14 @@ body::before {
   align-content: start;
   justify-content: center;
   gap: 1.15rem;
+}
+
+.event-list-section--paginated .event-list {
+  min-height: 72rem;
+}
+
+.event-list-section--compact .event-list {
+  min-height: 0;
 }
 
 .event-list-section__pagination {
@@ -822,6 +829,10 @@ body::before {
   .event-list {
     grid-template-columns: 1fr;
     grid-auto-rows: minmax(17.75rem, auto);
+    min-height: 0;
+  }
+
+  .event-list-section--paginated .event-list {
     min-height: 0;
   }
 }
@@ -1263,7 +1274,8 @@ html {
 
 .search-button {
   min-height: 3.25rem;
-  padding-inline: 1.55rem;
+  height: 3.25rem;
+  padding-inline: 1.42rem;
 }
 
 .content-panel--map {
@@ -1399,20 +1411,23 @@ html {
 
 .source-card {
   display: grid;
-  grid-template-columns: 4.15rem 1fr;
-  gap: 1.15rem;
-  align-items: start;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 1.25rem;
+  align-items: center;
+  min-height: 9.25rem;
   padding: clamp(1.15rem, 2.4vw, 1.55rem);
   background: linear-gradient(180deg, rgba(18, 20, 31, 0.72), rgba(14, 15, 24, 0.68));
 }
 
 .source-card__icon {
-  width: 4.15rem;
-  height: 4.15rem;
-  display: grid;
-  place-items: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: var(--radius-sm);
   background: rgba(7, 8, 13, 0.62);
+  line-height: 0;
   box-shadow:
     0 0 0 1px rgba(255, 255, 255, 0.12),
     0 0.85rem 1.65rem rgba(0, 0, 0, 0.24),
@@ -1420,10 +1435,11 @@ html {
 }
 
 .source-card__icon img {
-  width: 3.25rem;
-  height: 3.25rem;
+  width: 3.75rem;
+  height: 3.75rem;
   object-fit: contain;
   display: block;
+  margin: 0;
 }
 
 .source-card h3 {
@@ -1431,14 +1447,6 @@ html {
   color: var(--text-primary);
   font-size: 1.2rem;
   line-height: 1.2;
-}
-
-.source-card__accent {
-  margin-top: 0.25rem;
-  color: var(--accent-cyan);
-  font-size: 0.78rem;
-  font-weight: 700;
-  line-height: 1.35;
 }
 
 .build-panel {

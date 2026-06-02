@@ -146,7 +146,6 @@ function HomePage() {
               </span>
               <div>
                 <h3>Shotgun</h3>
-                <p className="source-card__accent">Local scenes and club events</p>
                 <p>Discover local organizers, club nights, concerts and independent scenes across France and Europe.</p>
               </div>
             </article>
@@ -156,7 +155,6 @@ function HomePage() {
               </span>
               <div>
                 <h3>Ticketmaster</h3>
-                <p className="source-card__accent">Major tours and venues</p>
                 <p>Explore large concerts, major venues and international event listings.</p>
               </div>
             </article>

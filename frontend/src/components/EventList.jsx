@@ -38,9 +38,15 @@ function EventList({
   const shouldShowPagination = totalEventsCount > eventsPerPage
   const canGoPrevious = currentPage > 1
   const canGoNext = currentPage < totalPages
+  const sectionClassName = [
+    'event-list-section',
+    shouldShowPagination
+      ? 'event-list-section--paginated'
+      : 'event-list-section--compact',
+  ].join(' ')
 
   return (
-    <section className="event-list-section" aria-label="Event list">
+    <section className={sectionClassName} aria-label="Event list">
       <div className="event-list-section__header">
         <div>
           <h2 className="event-list-section__title">Found events</h2>
