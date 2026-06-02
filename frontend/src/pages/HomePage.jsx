@@ -69,15 +69,15 @@ function HomePage() {
       <main className="home-page" id="main-content">
         <section className="home-main-inner explore-section" id="explore">
           <SiteHeader
-            title="Find live music in any city."
-            subtitle="Search a city, explore real concerts from Ticketmaster, and open ticket links from a clean fullstack web experience."
+            title="Discover live events across cities and scenes."
+            subtitle="Search by city or artist and explore events on an interactive map."
           />
           <div className="hero-search">
             <SearchBar onSearch={handleSearch} loading={loading} />
           </div>
           {error ? (
             <div className="status-banner status-banner--error" role="alert">
-              <p className="status-banner__title">Unable to display concerts</p>
+              <p className="status-banner__title">Unable to display events</p>
               <p className="status-banner__detail">{error}</p>
               <p className="status-banner__hint">
                 Check that the backend is running and try again.
@@ -105,8 +105,8 @@ function HomePage() {
                 onNextPage={handleNextPage}
                 emptyMessage={
                   lastSearch.value
-                    ? `No concerts found for this ${lastSearch.type}.`
-                    : 'No concerts to display yet.'
+                    ? `No events found for this ${lastSearch.type}.`
+                    : 'No events to display yet.'
                 }
               />
             </div>
@@ -116,20 +116,47 @@ function HomePage() {
         <section className="info-section" id="how-it-works" aria-labelledby="how-title">
           <div className="section-heading">
             <p className="section-kicker">How it works</p>
-            <h2 id="how-title">A simple search flow for live music discovery.</h2>
+            <h2 id="how-title">A faster way to find the right night out.</h2>
           </div>
           <div className="steps-grid">
             <article className="step-card">
-              <h3>Search a city</h3>
-              <p>Enter a city name and SoundSpot sends the request to the FastAPI backend.</p>
+              <h3>Search your way</h3>
+              <p>Start with a city for nearby events, or search an artist when you already know who you want to see.</p>
             </article>
             <article className="step-card">
-              <h3>Explore live events</h3>
-              <p>The backend queries Ticketmaster and returns clean event data to the frontend.</p>
+              <h3>Scan the scene</h3>
+              <p>Browse upcoming events in a focused list while the map keeps venues and nearby locations in view.</p>
             </article>
             <article className="step-card">
-              <h3>Open ticket links</h3>
-              <p>Each event card keeps the important venue, city, date and ticket link visible.</p>
+              <h3>Choose the source</h3>
+              <p>Provider badges show where each event comes from, with clear links to continue on the original platform.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="info-section sources-section" id="sources" aria-labelledby="sources-title">
+          <div className="section-heading">
+            <p className="section-kicker">Event sources</p>
+            <h2 id="sources-title">Local scenes and major tours in one search.</h2>
+          </div>
+          <div className="sources-grid">
+            <article className="source-card">
+              <span className="source-card__icon" aria-hidden="true">
+                <img src="/providers/shotgun.png" alt="" />
+              </span>
+              <div>
+                <h3>Shotgun</h3>
+                <p>Discover local organizers, club nights, concerts and independent scenes across France and Europe.</p>
+              </div>
+            </article>
+            <article className="source-card">
+              <span className="source-card__icon" aria-hidden="true">
+                <img src="/providers/ticketmaster.png" alt="" />
+              </span>
+              <div>
+                <h3>Ticketmaster</h3>
+                <p>Explore large concerts, major venues and international event listings.</p>
+              </div>
             </article>
           </div>
         </section>
@@ -137,20 +164,32 @@ function HomePage() {
         <section className="info-section about-section" id="about" aria-labelledby="about-title">
           <div className="section-heading">
             <p className="section-kicker">About SoundSpot</p>
-            <h2 id="about-title">A focused way to discover live music by city.</h2>
+            <h2 id="about-title">A focused event discovery service for live music fans.</h2>
           </div>
           <div className="about-panel">
             <p>
-              SoundSpot helps users quickly find upcoming concerts in a city, scan
-              the essential event details, and open official ticket links without
-              getting lost in cluttered listings.
+              SoundSpot brings upcoming live music into a single, readable view so users
+              can move from curiosity to a real event plan without jumping between tabs.
             </p>
             <ul className="about-list">
-              <li>Search-first experience built for fast city exploration.</li>
-              <li>Clear event cards that keep venue, date and ticket access visible.</li>
-              <li>Responsive dark interface designed for a modern music product feel.</li>
+              <li>City and artist search for different discovery moods.</li>
+              <li>Map-first context for venues, clusters and nearby event density.</li>
+              <li>Clean event cards that keep source, venue, date and link access visible.</li>
             </ul>
-            <p className="about-tech">Built with React, FastAPI and Ticketmaster API.</p>
+          </div>
+        </section>
+
+        <section className="info-section build-section" id="build" aria-labelledby="build-title">
+          <div className="section-heading">
+            <p className="section-kicker">Behind the build</p>
+            <h2 id="build-title">Built as a fullstack product project.</h2>
+          </div>
+          <div className="about-panel build-panel">
+            <p>
+              SoundSpot is also a portfolio-grade fullstack project with a React frontend,
+              a FastAPI backend, external event APIs, normalized event data, and separate
+              frontend/backend deployment paths.
+            </p>
           </div>
         </section>
 
@@ -161,8 +200,8 @@ function HomePage() {
           </div>
           <div className="contact-panel">
             <p>
-              This project is designed as a professional fullstack portfolio piece,
-              with frontend and backend deployed independently.
+              Browse the repository for the implementation details, roadmap and deployment
+              structure behind SoundSpot.
             </p>
             <a
               className="contact-link"
@@ -179,7 +218,7 @@ function HomePage() {
       <footer className="app-footer">
         <div className="app-footer__content">
           <p>© 2026 SoundSpot. All rights reserved.</p>
-          <span>Built as a fullstack portfolio project.</span>
+          <span>Live event discovery powered by multiple sources.</span>
         </div>
         <a
           className="app-footer__link"

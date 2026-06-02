@@ -93,6 +93,7 @@ async def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
         longitude=longitude,
         ticket_url=raw.get("url") or "",
         is_location_approximate=is_location_approximate,
+        source="ticketmaster",
     )
 
 

@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import soundSpotIcon from '../assets/soundspot-icon-transparent.png'
 
 function SearchBar({ onSearch, loading }) {
   const [searchType, setSearchType] = useState('city')
@@ -47,7 +48,13 @@ function SearchBar({ onSearch, loading }) {
           onChange={(event) => setQuery(event.target.value)}
         />
         <button className="search-button" type="submit" disabled={loading}>
-          Search
+          <img
+            className="search-button__icon"
+            src={soundSpotIcon}
+            alt=""
+            aria-hidden="true"
+          />
+          <span>Search</span>
         </button>
       </div>
     </form>
