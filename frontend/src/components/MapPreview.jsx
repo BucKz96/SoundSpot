@@ -1,6 +1,7 @@
 import L from 'leaflet'
 import { useEffect, useMemo } from 'react'
 import { MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import ProviderBadge from './ProviderBadge'
 
 const DEFAULT_CENTER = [20, 0]
 const DEFAULT_ZOOM = 2
@@ -26,29 +27,6 @@ const approximateMarkerIcon = L.divIcon({
   iconAnchor: [13, 13],
   popupAnchor: [0, -13],
 })
-
-function getKnownValues(events, field) {
-  return new Set(events.map((event) => (event[field] || '').trim()).filter(Boolean))
-}
-
-function getNextDate(events) {
-  const dates = events
-    .map((event) => (event.date || '').trim())
-    .filter(Boolean)
-    .sort()
-
-  const nextDate = dates[0]
-  if (!nextDate) return 'To be confirmed'
-
-  const parsedDate = new Date(`${nextDate}T00:00:00`)
-  if (Number.isNaN(parsedDate.getTime())) return nextDate
-
-  return parsedDate.toLocaleDateString('en-US', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
-}
 
 function isValidCoordinate(latitude, longitude) {
   const lat = Number(latitude)
@@ -143,11 +121,12 @@ function SingleEventPopup({ event }) {
       {event.is_location_approximate ? (
         <p>Approximate city location</p>
       ) : null}
-      {ticketUrl ? (
-        <a href={ticketUrl} target="_blank" rel="noreferrer">
-          View on Ticketmaster
-        </a>
-      ) : null}
+      <ProviderBadge
+        source={event.source}
+        href={ticketUrl}
+        compact
+        unavailable={!ticketUrl}
+      />
     </article>
   )
 }
@@ -180,11 +159,12 @@ function GroupedEventsPopup({ events, isLocationApproximate }) {
                 <p className="event-map-popup__artist">{event.artist}</p>
               ) : null}
               <p>{formatEventTime(event)}</p>
-              {ticketUrl ? (
-                <a href={ticketUrl} target="_blank" rel="noreferrer">
-                  View on Ticketmaster
-                </a>
-              ) : null}
+              <ProviderBadge
+                source={event.source}
+                href={ticketUrl}
+                compact
+                unavailable={!ticketUrl}
+              />
             </li>
           )
         })}
@@ -232,12 +212,9 @@ function MapAutoFit({ events }) {
 }
 
 function MapPreview({ events, loading, searchedCity, searchLabel }) {
-  const venuesCount = getKnownValues(events, 'venue').size
-  const countriesCount = getKnownValues(events, 'country').size
   const activeSearchLabel = searchLabel || searchedCity || 'Global search'
-  const nextDate = loading ? 'Loading...' : getNextDate(events)
-  const eventsLabel = events.length === 1 ? 'concert' : 'concerts'
-  const countLabel = loading ? 'Searching...' : `${events.length} ${eventsLabel}`
+  const eventsLabel = events.length === 1 ? 'event' : 'events'
+  const countLabel = loading ? 'Searching events...' : `${events.length} ${eventsLabel} found`
   const geolocatedEvents = useMemo(
     () =>
       events
@@ -255,13 +232,11 @@ function MapPreview({ events, loading, searchedCity, searchLabel }) {
   )
 
   return (
-    <section className="map-preview" aria-label="Concert overview">
+    <section className="map-preview" aria-label="Live event map">
       <div className="map-preview__header">
-        <div>
-          <p className="map-preview__eyebrow">Overview</p>
-          <h2>{activeSearchLabel}</h2>
-        </div>
-        <span className="map-preview__count">{countLabel}</span>
+        <p className="map-preview__eyebrow">Live map</p>
+        <h2>{activeSearchLabel}</h2>
+        <p className="map-preview__count">{countLabel}</p>
       </div>
 
       <div className="map-box">
@@ -308,20 +283,7 @@ function MapPreview({ events, loading, searchedCity, searchLabel }) {
         ) : null}
       </div>
 
-      <dl className="map-preview__stats">
-        <div>
-          <dt>Next date</dt>
-          <dd>{nextDate}</dd>
-        </div>
-        <div>
-          <dt>Venues</dt>
-          <dd>{venuesCount || '—'}</dd>
-        </div>
-        <div>
-          <dt>Countries</dt>
-          <dd>{countriesCount || '—'}</dd>
-        </div>
-      </dl>
+      <div className="map-preview__tools" aria-hidden="true" />
     </section>
   )
 }

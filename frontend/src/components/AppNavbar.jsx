@@ -12,8 +12,8 @@ function AppNavbar() {
         <nav className="app-navbar__nav" aria-label="Primary navigation">
           <a href="#explore">Explore</a>
           <a href="#how-it-works">How it works</a>
+          <a href="#sources">Sources</a>
           <a href="#about">About</a>
-          <a href="#contact">Contact</a>
           <a
             href="https://github.com/BucKz96/SoundSpot"
             target="_blank"
