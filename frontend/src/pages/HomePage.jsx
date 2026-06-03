@@ -3,10 +3,31 @@ import SiteHeader from '../components/SiteHeader'
 import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
-import { useState } from 'react'
+import EventFilters from '../components/EventFilters'
+import { useMemo, useState } from 'react'
 import { getEventsByArtist, getEventsByCity } from '../services/api'
 
 const EVENTS_PER_PAGE = 12
+const DEFAULT_GENRE_FILTER = 'all'
+
+function isValidDateValue(value) {
+  if (!value) return false
+
+  const parsedDate = new Date(`${value}T00:00:00`)
+  return !Number.isNaN(parsedDate.getTime())
+}
+
+function eventMatchesDateRange(event, dateFrom, dateTo) {
+  const hasDateFilter = Boolean(dateFrom || dateTo)
+  const eventDate = (event.date || '').trim()
+
+  if (!hasDateFilter) return true
+  if (!isValidDateValue(eventDate)) return false
+  if (dateFrom && eventDate < dateFrom) return false
+  if (dateTo && eventDate > dateTo) return false
+
+  return true
+}
 
 function HomePage() {
   const [events, setEvents] = useState([])
@@ -15,11 +36,55 @@ function HomePage() {
   const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
   const [hasSearched, setHasSearched] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedGenre, setSelectedGenre] = useState(DEFAULT_GENRE_FILTER)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const filteredEvents = useMemo(
+    () =>
+      events.filter((event) => {
+        const eventGenres = Array.isArray(event.genres) ? event.genres : []
+        const matchesGenre =
+          selectedGenre === DEFAULT_GENRE_FILTER ||
+          eventGenres.includes(selectedGenre)
+
+        return matchesGenre && eventMatchesDateRange(event, dateFrom, dateTo)
+      }),
+    [events, selectedGenre, dateFrom, dateTo],
+  )
 
   const startIndex = (currentPage - 1) * EVENTS_PER_PAGE
   const endIndex = startIndex + EVENTS_PER_PAGE
-  const paginatedEvents = events.slice(startIndex, endIndex)
-  const totalPages = Math.max(1, Math.ceil(events.length / EVENTS_PER_PAGE))
+  const paginatedEvents = filteredEvents.slice(startIndex, endIndex)
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PER_PAGE))
+  const emptyEventsMessage =
+    events.length > 0 && filteredEvents.length === 0
+      ? 'No events match these filters.'
+      : lastSearch.value
+        ? `No events found for this ${lastSearch.type}.`
+        : 'No events to display yet.'
+
+  function resetFilters() {
+    setSelectedGenre(DEFAULT_GENRE_FILTER)
+    setDateFrom('')
+    setDateTo('')
+    setCurrentPage(1)
+  }
+
+  function handleGenreChange(value) {
+    setSelectedGenre(value)
+    setCurrentPage(1)
+  }
+
+  function handleDateFromChange(value) {
+    setDateFrom(value)
+    setCurrentPage(1)
+  }
+
+  function handleDateToChange(value) {
+    setDateTo(value)
+    setCurrentPage(1)
+  }
 
   function handlePreviousPage() {
     setCurrentPage((page) => Math.max(1, page - 1))
@@ -40,6 +105,7 @@ function HomePage() {
       setLastSearch({ type: searchType, value: '' })
       setHasSearched(false)
       setCurrentPage(1)
+      resetFilters()
       return
     }
 
@@ -48,14 +114,15 @@ function HomePage() {
     setLastSearch({ type: searchType, value: normalizedValue })
     setHasSearched(true)
     setCurrentPage(1)
+    resetFilters()
 
     try {
-      const filteredEvents =
+      const searchResults =
         searchType === 'artist'
           ? await getEventsByArtist(normalizedValue)
           : await getEventsByCity(normalizedValue)
 
-      setEvents(filteredEvents)
+      setEvents(searchResults)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -86,7 +153,7 @@ function HomePage() {
           ) : null}
           <div className="content-panel content-panel--map">
             <MapPreview
-              events={events}
+              events={filteredEvents}
               loading={loading}
               searchedCity={lastSearch.type === 'city' ? lastSearch.value : ''}
               searchLabel={lastSearch.value}
@@ -94,20 +161,25 @@ function HomePage() {
           </div>
           {hasSearched && !loading && !error ? (
             <div className="content-panel content-panel--events">
+              <EventFilters
+                selectedGenre={selectedGenre}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                onGenreChange={handleGenreChange}
+                onDateFromChange={handleDateFromChange}
+                onDateToChange={handleDateToChange}
+                onReset={resetFilters}
+              />
               <EventList
                 events={paginatedEvents}
                 searchType={lastSearch.type}
                 searchValue={lastSearch.value}
-                totalEventsCount={events.length}
+                totalEventsCount={filteredEvents.length}
                 currentPage={currentPage}
                 eventsPerPage={EVENTS_PER_PAGE}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}
-                emptyMessage={
-                  lastSearch.value
-                    ? `No events found for this ${lastSearch.type}.`
-                    : 'No events to display yet.'
-                }
+                emptyMessage={emptyEventsMessage}
               />
             </div>
           ) : null}
