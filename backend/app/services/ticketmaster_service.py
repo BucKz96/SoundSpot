@@ -4,6 +4,7 @@ from unicodedata import normalize
 from app.core.config import settings
 from app.schemas.event import EventResponse
 from app.services.geocoding_service import encode_geohash, geocode_city
+from app.utils.genre_normalizer import normalize_genres
 
 TICKETMASTER_EVENTS_URL = "https://app.ticketmaster.com/discovery/v2/events.json"
 TICKETMASTER_PAGE_SIZE = 50
@@ -29,6 +30,47 @@ def _is_valid_coordinate(latitude: float, longitude: float) -> bool:
         and -180 <= longitude <= 180
         and not (latitude == 0 and longitude == 0)
     )
+
+
+def _extract_classification_name(value: object) -> str:
+    if isinstance(value, dict):
+        name = value.get("name")
+        if isinstance(name, str):
+            return name
+
+    return ""
+
+
+def _extract_ticketmaster_genre_values(raw: dict) -> list[str]:
+    values = []
+    classifications = raw.get("classifications") or []
+    embedded = raw.get("_embedded") or {}
+    attractions = embedded.get("attractions") or []
+
+    for classification in classifications:
+        if not isinstance(classification, dict):
+            continue
+
+        for key in ("genre", "subGenre", "type", "subType"):
+            value = _extract_classification_name(classification.get(key))
+            if value:
+                values.append(value)
+
+    for attraction in attractions:
+        if not isinstance(attraction, dict):
+            continue
+
+        attraction_classifications = attraction.get("classifications") or []
+        for classification in attraction_classifications:
+            if not isinstance(classification, dict):
+                continue
+
+            for key in ("genre", "subGenre"):
+                value = _extract_classification_name(classification.get(key))
+                if value:
+                    values.append(value)
+
+    return values
 
 
 async def _resolve_event_coordinates(
@@ -94,6 +136,7 @@ async def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
         ticket_url=raw.get("url") or "",
         is_location_approximate=is_location_approximate,
         source="ticketmaster",
+        genres=normalize_genres(_extract_ticketmaster_genre_values(raw)),
     )
 
 
