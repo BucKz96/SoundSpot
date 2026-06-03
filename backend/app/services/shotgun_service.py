@@ -8,6 +8,7 @@ import httpx
 
 from app.core.config import settings
 from app.schemas.event import EventResponse
+from app.utils.genre_normalizer import normalize_genres
 
 SHOTGUN_MAX_EVENTS_LIMIT = 200
 
@@ -78,6 +79,25 @@ def _extract_name(value: Any) -> str:
         return str(_first_present(value, ("name", "displayName", "title")) or "")
 
     return ""
+
+
+def _extract_style_values(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [
+            name
+            for item in value
+            if (name := _extract_name(item).strip())
+        ]
+
+    name = _extract_name(value).strip()
+    return [name] if name else []
+
+
+def _extract_shotgun_genre_values(event: dict[str, Any]) -> list[str]:
+    return [
+        *_extract_style_values(event.get("eventTags")),
+        *_extract_style_values(event.get("typeOfPlace")),
+    ]
 
 
 def _extract_artist(event: dict[str, Any]) -> str:
@@ -170,6 +190,7 @@ def _shotgun_event_to_response(event: dict[str, Any]) -> EventResponse:
         ticket_url=event.get("url") or "",
         is_location_approximate=is_location_approximate,
         source="shotgun",
+        genres=normalize_genres(_extract_shotgun_genre_values(event)),
     )
 
 
