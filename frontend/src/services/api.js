@@ -21,6 +21,17 @@ export async function getEventsByCity(city) {
   return response.json()
 }
 
+export async function getDiscoveryEvents() {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+  const response = await fetch(`${baseUrl}/api/events/discovery`)
+
+  if (!response.ok) {
+    throw new Error(`Failed to load discovery events (${response.status})`)
+  }
+
+  return response.json()
+}
+
 export async function getEventsByArtist(artist) {
   const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
   const artistParam = encodeURIComponent(artist)

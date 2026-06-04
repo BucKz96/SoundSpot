@@ -6,6 +6,7 @@ import ProviderBadge from './ProviderBadge'
 const DEFAULT_CENTER = [20, 0]
 const DEFAULT_ZOOM = 2
 const MAX_GROUPED_POPUP_EVENTS = 6
+const DISCOVERY_JITTER_STEP = 0.035
 const CARTO_DARK_TILES_URL =
   'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
 
@@ -69,16 +70,17 @@ function getDominantSource(events) {
   return dominantSource
 }
 
-function createMarkerIcon({ source, isGrouped, isApproximate, count }) {
+function createMarkerIcon({ source, isGrouped, isApproximate, isDiscovery, count }) {
   const sourceClass = getSourceMarkerClass(source)
   const groupedClass = isGrouped ? 'event-map-marker--grouped' : ''
   const approximateClass = isApproximate ? 'event-map-marker--approximate' : ''
-  const size = isGrouped ? 30 : 22
+  const discoveryClass = isDiscovery ? 'event-map-marker--discovery' : ''
+  const size = isDiscovery ? (isGrouped ? 24 : 16) : (isGrouped ? 30 : 22)
   const anchor = size / 2
-  const countLabel = isGrouped && count > 1 ? `<em>${count}</em>` : ''
+  const countLabel = isGrouped && count > 1 && !isDiscovery ? `<em>${count}</em>` : ''
 
   return L.divIcon({
-    className: `event-map-marker ${sourceClass} ${groupedClass} ${approximateClass}`.trim(),
+    className: `event-map-marker ${sourceClass} ${groupedClass} ${approximateClass} ${discoveryClass}`.trim(),
     html: `<span><b></b><i></i>${countLabel}</span>`,
     iconSize: [size, size],
     iconAnchor: [anchor, anchor],
@@ -111,6 +113,54 @@ function formatEventTime(event) {
 
 function getCoordinateKey(event) {
   return `${event.latitude.toFixed(6)},${event.longitude.toFixed(6)}`
+}
+
+function clampCoordinate(value, min, max) {
+  return Math.min(max, Math.max(min, value))
+}
+
+function getDiscoveryOffset(event, index) {
+  const seed = `${event.id || event.name || ''}-${event.date || ''}-${index}`
+  let hash = 0
+
+  for (let i = 0; i < seed.length; i += 1) {
+    hash = (hash * 31 + seed.charCodeAt(i)) % 9973
+  }
+
+  const angle = (hash % 360) * (Math.PI / 180)
+  const radius = ((hash % 4) + 1) * DISCOVERY_JITTER_STEP
+
+  return {
+    latitude: Math.sin(angle) * radius,
+    longitude: Math.cos(angle) * radius,
+  }
+}
+
+function spreadDiscoveryEvents(events) {
+  const coordinateCounts = new Map()
+
+  events.forEach((event) => {
+    const key = getCoordinateKey(event)
+    coordinateCounts.set(key, (coordinateCounts.get(key) || 0) + 1)
+  })
+
+  const coordinateIndexes = new Map()
+
+  return events.map((event) => {
+    const key = getCoordinateKey(event)
+    const count = coordinateCounts.get(key) || 0
+    if (count <= 1) return event
+
+    const index = coordinateIndexes.get(key) || 0
+    coordinateIndexes.set(key, index + 1)
+    const offset = getDiscoveryOffset(event, index)
+
+    return {
+      ...event,
+      latitude: clampCoordinate(event.latitude + offset.latitude, -90, 90),
+      longitude: clampCoordinate(event.longitude + offset.longitude, -180, 180),
+    }
+  })
 }
 
 function groupEventsByCoordinates(events) {
@@ -299,23 +349,35 @@ function MapAutoFit({ events, hasSearched }) {
   return null
 }
 
-function MapPreview({ events, loading, hasSearched = false, searchValue = '' }) {
+function MapPreview({
+  events,
+  loading,
+  hasSearched = false,
+  searchValue = '',
+  discoveryError = '',
+}) {
   const geolocatedEvents = useMemo(
-    () =>
-      events
+    () => {
+      const normalizedEvents = events
         .filter((event) => isValidCoordinate(event.latitude, event.longitude))
         .map((event) => ({
           ...event,
           latitude: Number(event.latitude),
           longitude: Number(event.longitude),
-        })),
-    [events],
+        }))
+
+      return hasSearched ? normalizedEvents : spreadDiscoveryEvents(normalizedEvents)
+    },
+    [events, hasSearched],
   )
   const groupedEventLocations = useMemo(
     () => groupEventsByCoordinates(geolocatedEvents),
     [geolocatedEvents],
   )
   const showGlobalDiscovery = !hasSearched
+  const showGlobalFallback = showGlobalDiscovery && groupedEventLocations.length === 0
+  const showDiscoveryErrorHint =
+    showGlobalFallback && !loading && Boolean(discoveryError)
   const showEmptySearchHint =
     hasSearched && !loading && events.length === 0 && Boolean(searchValue)
 
@@ -343,37 +405,36 @@ function MapPreview({ events, loading, hasSearched = false, searchValue = '' }) 
             url={CARTO_DARK_TILES_URL}
           />
           <MapAutoFit events={groupedEventLocations} hasSearched={hasSearched} />
-          {showGlobalDiscovery ? <GlobalGlowMarkers /> : null}
-          {!showGlobalDiscovery
-            ? groupedEventLocations.map((group) => {
-                const isGrouped = group.events.length > 1
-                const dominantSource = getDominantSource(group.events)
+          {showGlobalFallback ? <GlobalGlowMarkers /> : null}
+          {groupedEventLocations.map((group) => {
+            const isGrouped = group.events.length > 1
+            const dominantSource = getDominantSource(group.events)
 
-                return (
-                  <Marker
-                    key={group.key}
-                    position={[group.latitude, group.longitude]}
-                    icon={createMarkerIcon({
-                      source: dominantSource,
-                      isGrouped,
-                      isApproximate: group.isLocationApproximate,
-                      count: group.events.length,
-                    })}
-                  >
-                    <Popup>
-                      {group.events.length === 1 ? (
-                        <SingleEventPopup event={group.events[0]} />
-                      ) : (
-                        <GroupedEventsPopup
-                          events={group.events}
-                          isLocationApproximate={group.isLocationApproximate}
-                        />
-                      )}
-                    </Popup>
-                  </Marker>
-                )
-              })
-            : null}
+            return (
+              <Marker
+                key={group.key}
+                position={[group.latitude, group.longitude]}
+                icon={createMarkerIcon({
+                  source: dominantSource,
+                  isGrouped,
+                  isApproximate: group.isLocationApproximate,
+                  isDiscovery: showGlobalDiscovery,
+                  count: group.events.length,
+                })}
+              >
+                <Popup>
+                  {group.events.length === 1 ? (
+                    <SingleEventPopup event={group.events[0]} />
+                  ) : (
+                    <GroupedEventsPopup
+                      events={group.events}
+                      isLocationApproximate={group.isLocationApproximate}
+                    />
+                  )}
+                </Popup>
+              </Marker>
+            )
+          })}
         </MapContainer>
         <div className="map-box__overlay" aria-hidden="true" />
         {loading ? (
@@ -387,6 +448,11 @@ function MapPreview({ events, loading, hasSearched = false, searchValue = '' }) 
         {showEmptySearchHint ? (
           <div className="map-box__empty-hint" aria-live="polite">
             <p>No events found for {searchValue}</p>
+          </div>
+        ) : null}
+        {showDiscoveryErrorHint ? (
+          <div className="map-box__empty-hint" aria-live="polite">
+            <p>Discovery map unavailable. Search to explore events.</p>
           </div>
         ) : null}
       </div>

@@ -12,6 +12,9 @@ class Settings(BaseSettings):
     shotgun_api_base_url: str = "https://api.shotgun.live"
     shotgun_max_events: int = 200
     shotgun_search_months_ahead: int = 6
+    discovery_max_events: int = 250
+    discovery_months_ahead: int = 3
+    discovery_cache_ttl_seconds: int = 1800
     geocoding_url: str = "https://nominatim.openstreetmap.org/search"
     geocoding_user_agent: str = "SoundSpot/1.0"
     backend_cors_origins: str = (

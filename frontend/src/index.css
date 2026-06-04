@@ -442,14 +442,14 @@ body::before {
   min-height: clamp(18rem, 48vw, 34rem);
   border: 1px solid transparent;
   background:
-    linear-gradient(145deg, rgba(2, 5, 14, 0.98), rgba(8, 7, 18, 0.98)) padding-box,
-    linear-gradient(135deg, rgba(34, 211, 238, 0.66), rgba(167, 139, 250, 0.26) 38%, rgba(232, 121, 249, 0.52) 68%, rgba(34, 211, 238, 0.32)) border-box;
+    linear-gradient(145deg, rgba(1, 4, 12, 0.99), rgba(4, 6, 16, 0.99)) padding-box,
+    linear-gradient(135deg, rgba(34, 211, 238, 0.58), rgba(7, 10, 24, 0.2) 31%, rgba(167, 139, 250, 0.4) 59%, rgba(232, 121, 249, 0.32) 78%, rgba(34, 211, 238, 0.28)) border-box;
   border-radius: 16px;
   box-shadow:
-    0 1.7rem 3.6rem rgba(0, 0, 0, 0.58),
-    0 0 28px rgba(34, 211, 238, 0.18),
-    0 0 62px rgba(139, 92, 246, 0.16),
-    0 0 92px rgba(232, 121, 249, 0.08),
+    0 1.9rem 3.9rem rgba(0, 0, 0, 0.64),
+    0 0 28px rgba(34, 211, 238, 0.16),
+    0 0 64px rgba(139, 92, 246, 0.14),
+    0 0 96px rgba(232, 121, 249, 0.07),
     0 0 0 1px rgba(255, 255, 255, 0.06) inset;
   display: flex;
   align-items: center;
@@ -465,9 +465,9 @@ body::before {
   border-radius: inherit;
   pointer-events: none;
   box-shadow:
-    0 0 0 1px rgba(165, 243, 252, 0.12) inset,
-    0 0 38px rgba(34, 211, 238, 0.12) inset,
-    0 0 54px rgba(232, 121, 249, 0.08) inset;
+    0 0 0 1px rgba(165, 243, 252, 0.14) inset,
+    0 0 42px rgba(34, 211, 238, 0.14) inset,
+    0 0 62px rgba(232, 121, 249, 0.09) inset;
   z-index: 404;
 }
 
@@ -477,22 +477,20 @@ body::before {
   pointer-events: none;
   border-radius: inherit;
   background:
-    linear-gradient(rgba(255, 255, 255, 0.018) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.014) 1px, transparent 1px),
-    radial-gradient(circle at 15% 12%, rgba(34, 211, 238, 0.18), transparent 31%),
-    radial-gradient(circle at 78% 22%, rgba(232, 121, 249, 0.14), transparent 33%),
-    radial-gradient(circle at 66% 84%, rgba(139, 92, 246, 0.17), transparent 38%),
-    radial-gradient(ellipse at center, transparent 42%, rgba(2, 4, 12, 0.66) 100%),
-    linear-gradient(135deg, rgba(34, 211, 238, 0.075), rgba(3, 5, 13, 0.08) 46%, rgba(167, 139, 250, 0.085));
+    radial-gradient(circle at 14% 18%, rgba(34, 211, 238, 0.055), transparent 18%),
+    radial-gradient(circle at 84% 20%, rgba(232, 121, 249, 0.045), transparent 20%),
+    radial-gradient(circle at 19% 72%, rgba(125, 211, 252, 0.035) 0 1px, transparent 1.7px),
+    radial-gradient(circle at 72% 34%, rgba(216, 180, 254, 0.03) 0 1px, transparent 1.8px),
+    radial-gradient(ellipse at center, transparent 58%, rgba(1, 4, 13, 0.5) 100%),
+    linear-gradient(180deg, rgba(0, 2, 8, 0.08), transparent 42%, rgba(0, 2, 8, 0.12));
   background-size:
-    52px 52px,
-    52px 52px,
     auto,
     auto,
-    auto,
+    43px 43px,
+    61px 61px,
     auto,
     auto;
-  opacity: 0.96;
+  opacity: 0.72;
   z-index: 405;
 }
 
@@ -538,21 +536,27 @@ body::before {
   z-index: 0;
 }
 
+.event-map .leaflet-tile {
+  filter: brightness(0.86) contrast(1.08) saturate(1.02) hue-rotate(6deg);
+}
+
 .event-map::after {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
   background:
-    radial-gradient(circle at 28% 24%, rgba(34, 211, 238, 0.09), transparent 34%),
-    radial-gradient(circle at 72% 66%, rgba(167, 139, 250, 0.1), transparent 38%),
-    radial-gradient(ellipse at center, transparent 52%, rgba(2, 4, 12, 0.45) 100%);
+    radial-gradient(circle at 28% 24%, rgba(34, 211, 238, 0.02), transparent 28%),
+    radial-gradient(circle at 72% 66%, rgba(167, 139, 250, 0.024), transparent 32%),
+    linear-gradient(180deg, transparent, rgba(1, 4, 13, 0.08)),
+    radial-gradient(ellipse at center, transparent 62%, rgba(1, 4, 13, 0.42) 100%);
   background-size:
     auto,
     auto,
+    auto,
     auto;
-  mix-blend-mode: screen;
-  opacity: 0.72;
+  mix-blend-mode: normal;
+  opacity: 0.48;
   z-index: 410;
 }
 
@@ -650,35 +654,35 @@ body::before {
   border-radius: 999px;
   background: radial-gradient(circle at 38% 32%, #ffffff 0 9%, var(--accent-cyan) 24%, var(--accent-violet) 76%);
   box-shadow:
-    0 0 0 0.28rem rgba(34, 211, 238, 0.18),
-    0 0 0 0.58rem rgba(139, 92, 246, 0.1),
-    0 0 1.45rem rgba(34, 211, 238, 0.58),
-    0 0 2.1rem rgba(167, 139, 250, 0.34);
+    0 0 0 0.22rem rgba(34, 211, 238, 0.16),
+    0 0 0 0.42rem rgba(139, 92, 246, 0.08),
+    0 0 1rem rgba(34, 211, 238, 0.56),
+    0 0 1.45rem rgba(167, 139, 250, 0.28);
 }
 
 .event-map-marker span::before,
 .event-map-marker span::after {
   content: '';
   position: absolute;
-  inset: -0.45rem;
+  inset: -0.36rem;
   border-radius: inherit;
-  background: radial-gradient(circle, rgba(34, 211, 238, 0.25), transparent 66%);
-  opacity: 0.86;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.2), transparent 66%);
+  opacity: 0.78;
   z-index: -2;
 }
 
 .event-map-marker span::after {
-  inset: -0.85rem;
-  background: radial-gradient(circle, rgba(167, 139, 250, 0.2), transparent 68%);
-  opacity: 0.76;
+  inset: -0.64rem;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.15), transparent 68%);
+  opacity: 0.62;
 }
 
 .event-map-marker span b {
   position: absolute;
-  inset: -0.68rem;
+  inset: -0.56rem;
   border-radius: inherit;
   border: 1px solid rgba(165, 243, 252, 0.18);
-  opacity: 0.72;
+  opacity: 0.58;
   transform: scale(0.82);
   animation: marker-halo-pulse 2.8s ease-out infinite;
   z-index: -1;
@@ -711,9 +715,9 @@ body::before {
 .event-map-marker--ticketmaster span {
   background: radial-gradient(circle at 38% 32%, #ffffff 0 10%, #67e8f9 24%, #0284c7 78%);
   box-shadow:
-    0 0 0 0.3rem rgba(34, 211, 238, 0.2),
-    0 0 0 0.62rem rgba(14, 165, 233, 0.1),
-    0 0 1.55rem rgba(34, 211, 238, 0.66);
+    0 0 0 0.22rem rgba(34, 211, 238, 0.18),
+    0 0 0 0.44rem rgba(14, 165, 233, 0.08),
+    0 0 1.05rem rgba(34, 211, 238, 0.64);
 }
 
 .event-map-marker--ticketmaster span b {
@@ -723,9 +727,9 @@ body::before {
 .event-map-marker--shotgun span {
   background: radial-gradient(circle at 38% 32%, #ffffff 0 10%, #f0abfc 24%, #9333ea 78%);
   box-shadow:
-    0 0 0 0.3rem rgba(232, 121, 249, 0.2),
-    0 0 0 0.62rem rgba(139, 92, 246, 0.13),
-    0 0 1.55rem rgba(192, 132, 252, 0.62);
+    0 0 0 0.22rem rgba(232, 121, 249, 0.17),
+    0 0 0 0.44rem rgba(139, 92, 246, 0.1),
+    0 0 1.05rem rgba(192, 132, 252, 0.6);
 }
 
 .event-map-marker--shotgun span b {
@@ -737,15 +741,84 @@ body::before {
   height: 1.1rem;
   border-width: 1px;
   box-shadow:
-    0 0 0 0.4rem rgba(34, 211, 238, 0.22),
-    0 0 0 0.8rem rgba(139, 92, 246, 0.14),
-    0 0 1.95rem rgba(34, 211, 238, 0.52),
-    0 0 2.45rem rgba(167, 139, 250, 0.48);
+    0 0 0 0.3rem rgba(34, 211, 238, 0.2),
+    0 0 0 0.58rem rgba(139, 92, 246, 0.11),
+    0 0 1.35rem rgba(34, 211, 238, 0.5),
+    0 0 1.75rem rgba(167, 139, 250, 0.4);
 }
 
 .event-map-marker--grouped span b {
-  inset: -0.9rem;
-  opacity: 0.9;
+  inset: -0.7rem;
+  opacity: 0.72;
+}
+
+.event-map-marker--discovery span {
+  width: 0.48rem;
+  height: 0.48rem;
+  border-color: rgba(238, 252, 255, 0.86);
+  box-shadow:
+    0 0 0 0.12rem rgba(34, 211, 238, 0.14),
+    0 0 0 0.24rem rgba(139, 92, 246, 0.06),
+    0 0 0.54rem rgba(34, 211, 238, 0.62),
+    0 0 0.82rem rgba(167, 139, 250, 0.24);
+}
+
+.event-map-marker--discovery span::before {
+  inset: -0.24rem;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.18), transparent 68%);
+  opacity: 0.68;
+}
+
+.event-map-marker--discovery span::after {
+  inset: -0.42rem;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.1), transparent 72%);
+  opacity: 0.48;
+}
+
+.event-map-marker--discovery span b {
+  inset: -0.34rem;
+  border-color: rgba(165, 243, 252, 0.14);
+  opacity: 0.42;
+  animation-duration: 3.4s;
+}
+
+.event-map-marker--discovery span i {
+  inset: 0.12rem;
+  opacity: 0.86;
+  box-shadow: 0 0 0.52rem rgba(255, 255, 255, 0.88);
+}
+
+.event-map-marker--discovery.event-map-marker--ticketmaster span {
+  background: radial-gradient(circle at 38% 32%, #ffffff 0 12%, #67e8f9 30%, #0284c7 82%);
+  box-shadow:
+    0 0 0 0.12rem rgba(34, 211, 238, 0.16),
+    0 0 0 0.24rem rgba(14, 165, 233, 0.07),
+    0 0 0.62rem rgba(34, 211, 238, 0.7),
+    0 0 0.88rem rgba(14, 165, 233, 0.2);
+}
+
+.event-map-marker--discovery.event-map-marker--shotgun span {
+  background: radial-gradient(circle at 38% 32%, #ffffff 0 12%, #f0abfc 30%, #9333ea 82%);
+  box-shadow:
+    0 0 0 0.12rem rgba(232, 121, 249, 0.15),
+    0 0 0 0.24rem rgba(139, 92, 246, 0.07),
+    0 0 0.62rem rgba(232, 121, 249, 0.64),
+    0 0 0.88rem rgba(139, 92, 246, 0.26);
+}
+
+.event-map-marker--discovery.event-map-marker--grouped span {
+  width: 0.62rem;
+  height: 0.62rem;
+  box-shadow:
+    0 0 0 0.16rem rgba(34, 211, 238, 0.15),
+    0 0 0 0.32rem rgba(139, 92, 246, 0.08),
+    0 0 0.76rem rgba(34, 211, 238, 0.62),
+    0 0 1rem rgba(167, 139, 250, 0.32);
+}
+
+.event-map-marker--discovery.event-map-marker--grouped span b {
+  inset: -0.42rem;
+  opacity: 0.52;
 }
 
 .event-map-marker--approximate span {
