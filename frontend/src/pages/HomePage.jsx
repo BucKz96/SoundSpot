@@ -9,20 +9,30 @@ import { getEventsByArtist, getEventsByCity } from '../services/api'
 
 const EVENTS_PER_PAGE = 12
 const DEFAULT_GENRE_FILTER = 'all'
+const DEFAULT_SOURCE_FILTER = 'all'
 
-function isValidDateValue(value) {
-  if (!value) return false
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
-  const parsedDate = new Date(`${value}T00:00:00`)
-  return !Number.isNaN(parsedDate.getTime())
+function isValidISODate(value) {
+  return ISO_DATE_PATTERN.test(value)
 }
 
-function eventMatchesDateRange(event, dateFrom, dateTo) {
-  const hasDateFilter = Boolean(dateFrom || dateTo)
-  const eventDate = (event.date || '').trim()
+function normalizeISODate(value) {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return null
 
+  const isoPrefix = trimmed.slice(0, 10)
+  return isValidISODate(isoPrefix) ? isoPrefix : null
+}
+
+function matchesDateRange(eventDateValue, dateFromValue, dateToValue) {
+  const dateFrom = normalizeISODate(dateFromValue)
+  const dateTo = normalizeISODate(dateToValue)
+  const hasDateFilter = Boolean(dateFrom || dateTo)
   if (!hasDateFilter) return true
-  if (!isValidDateValue(eventDate)) return false
+
+  const eventDate = normalizeISODate(eventDateValue)
+  if (!eventDate) return false
   if (dateFrom && eventDate < dateFrom) return false
   if (dateTo && eventDate > dateTo) return false
 
@@ -37,6 +47,7 @@ function HomePage() {
   const [hasSearched, setHasSearched] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedGenre, setSelectedGenre] = useState(DEFAULT_GENRE_FILTER)
+  const [selectedSource, setSelectedSource] = useState(DEFAULT_SOURCE_FILTER)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
 
@@ -47,10 +58,13 @@ function HomePage() {
         const matchesGenre =
           selectedGenre === DEFAULT_GENRE_FILTER ||
           eventGenres.includes(selectedGenre)
+        const matchesSource =
+          selectedSource === DEFAULT_SOURCE_FILTER ||
+          (event.source || '').trim().toLowerCase() === selectedSource
 
-        return matchesGenre && eventMatchesDateRange(event, dateFrom, dateTo)
+        return matchesGenre && matchesSource && matchesDateRange(event.date, dateFrom, dateTo)
       }),
-    [events, selectedGenre, dateFrom, dateTo],
+    [events, selectedGenre, selectedSource, dateFrom, dateTo],
   )
 
   const startIndex = (currentPage - 1) * EVENTS_PER_PAGE
@@ -59,13 +73,14 @@ function HomePage() {
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PER_PAGE))
   const emptyEventsMessage =
     events.length > 0 && filteredEvents.length === 0
-      ? 'No events match these filters.'
+      ? 'No events match these filters. Try another genre, date range, or source.'
       : lastSearch.value
-        ? `No events found for this ${lastSearch.type}.`
+        ? `No events found for ${lastSearch.value}. Try another genre, date range, or source.`
         : 'No events to display yet.'
 
   function resetFilters() {
     setSelectedGenre(DEFAULT_GENRE_FILTER)
+    setSelectedSource(DEFAULT_SOURCE_FILTER)
     setDateFrom('')
     setDateTo('')
     setCurrentPage(1)
@@ -73,6 +88,11 @@ function HomePage() {
 
   function handleGenreChange(value) {
     setSelectedGenre(value)
+    setCurrentPage(1)
+  }
+
+  function handleSourceChange(value) {
+    setSelectedSource(value)
     setCurrentPage(1)
   }
 
@@ -152,24 +172,31 @@ function HomePage() {
             </div>
           ) : null}
           <div className="content-panel content-panel--map">
-            <MapPreview
-              events={filteredEvents}
-              loading={loading}
-              searchedCity={lastSearch.type === 'city' ? lastSearch.value : ''}
-              searchLabel={lastSearch.value}
-            />
-          </div>
-          {hasSearched && !loading && !error ? (
-            <div className="content-panel content-panel--events">
+            {hasSearched && !loading && !error ? (
               <EventFilters
                 selectedGenre={selectedGenre}
+                selectedSource={selectedSource}
                 dateFrom={dateFrom}
                 dateTo={dateTo}
+                searchLabel={lastSearch.value}
+                eventsCount={filteredEvents.length}
+                loading={loading}
                 onGenreChange={handleGenreChange}
+                onSourceChange={handleSourceChange}
                 onDateFromChange={handleDateFromChange}
                 onDateToChange={handleDateToChange}
                 onReset={resetFilters}
               />
+            ) : null}
+            <MapPreview
+              events={filteredEvents}
+              loading={loading}
+              hasSearched={hasSearched}
+              searchValue={lastSearch.value}
+            />
+          </div>
+          {hasSearched && !loading && !error ? (
+            <div className="content-panel content-panel--events">
               <EventList
                 events={paginatedEvents}
                 searchType={lastSearch.type}
