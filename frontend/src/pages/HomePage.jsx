@@ -4,8 +4,8 @@ import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
 import EventFilters from '../components/EventFilters'
-import { useMemo, useState } from 'react'
-import { getEventsByArtist, getEventsByCity } from '../services/api'
+import { useEffect, useMemo, useState } from 'react'
+import { getDiscoveryEvents, getEventsByArtist, getEventsByCity } from '../services/api'
 
 const EVENTS_PER_PAGE = 12
 const DEFAULT_GENRE_FILTER = 'all'
@@ -41,6 +41,9 @@ function matchesDateRange(eventDateValue, dateFromValue, dateToValue) {
 
 function HomePage() {
   const [events, setEvents] = useState([])
+  const [discoveryEvents, setDiscoveryEvents] = useState([])
+  const [discoveryLoading, setDiscoveryLoading] = useState(false)
+  const [discoveryError, setDiscoveryError] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
@@ -71,12 +74,45 @@ function HomePage() {
   const endIndex = startIndex + EVENTS_PER_PAGE
   const paginatedEvents = filteredEvents.slice(startIndex, endIndex)
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PER_PAGE))
+  const mapEvents = hasSearched ? filteredEvents : discoveryEvents
+  const mapLoading = hasSearched ? loading : discoveryLoading
   const emptyEventsMessage =
     events.length > 0 && filteredEvents.length === 0
       ? 'No events match these filters. Try another genre, date range, or source.'
       : lastSearch.value
         ? `No events found for ${lastSearch.value}. Try another genre, date range, or source.`
         : 'No events to display yet.'
+
+  useEffect(() => {
+    let ignore = false
+
+    async function loadDiscoveryEvents() {
+      setDiscoveryLoading(true)
+      setDiscoveryError('')
+
+      try {
+        const discoveryResults = await getDiscoveryEvents()
+        if (!ignore) {
+          setDiscoveryEvents(discoveryResults)
+        }
+      } catch (err) {
+        if (!ignore) {
+          setDiscoveryError(err instanceof Error ? err.message : 'Unknown error')
+          setDiscoveryEvents([])
+        }
+      } finally {
+        if (!ignore) {
+          setDiscoveryLoading(false)
+        }
+      }
+    }
+
+    loadDiscoveryEvents()
+
+    return () => {
+      ignore = true
+    }
+  }, [])
 
   function resetFilters() {
     setSelectedGenre(DEFAULT_GENRE_FILTER)
@@ -189,10 +225,11 @@ function HomePage() {
               />
             ) : null}
             <MapPreview
-              events={filteredEvents}
-              loading={loading}
+              events={mapEvents}
+              loading={mapLoading}
               hasSearched={hasSearched}
               searchValue={lastSearch.value}
+              discoveryError={discoveryError}
             />
           </div>
           {hasSearched && !loading && !error ? (
