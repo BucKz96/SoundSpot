@@ -42,7 +42,7 @@ function matchesDateRange(eventDateValue, dateFromValue, dateToValue) {
 function HomePage() {
   const [events, setEvents] = useState([])
   const [discoveryEvents, setDiscoveryEvents] = useState([])
-  const [discoveryLoading, setDiscoveryLoading] = useState(false)
+  const [discoveryLoading, setDiscoveryLoading] = useState(true)
   const [discoveryError, setDiscoveryError] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')

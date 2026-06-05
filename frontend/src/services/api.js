@@ -1,45 +1,41 @@
-export async function getEvents() {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
-  const response = await fetch(`${baseUrl}/api/events`)
+const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 
+async function getJsonArray(response, errorMessage) {
   if (!response.ok) {
-    throw new Error(`Failed to load events (${response.status})`)
+    throw new Error(`${errorMessage} (${response.status})`)
   }
 
-  return response.json()
+  const data = await response.json()
+  if (!Array.isArray(data)) {
+    throw new Error(`${errorMessage}: invalid response format`)
+  }
+
+  return data
+}
+
+
+export async function getEvents() {
+  const response = await fetch(`${baseUrl}/api/events`)
+
+  return getJsonArray(response, 'Failed to load events')
 }
 
 export async function getEventsByCity(city) {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
   const cityParam = encodeURIComponent(city)
   const response = await fetch(`${baseUrl}/api/events/search?city=${cityParam}`)
 
-  if (!response.ok) {
-    throw new Error(`Failed to search events (${response.status})`)
-  }
-
-  return response.json()
+  return getJsonArray(response, 'Failed to search events')
 }
 
 export async function getDiscoveryEvents() {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
   const response = await fetch(`${baseUrl}/api/events/discovery`)
 
-  if (!response.ok) {
-    throw new Error(`Failed to load discovery events (${response.status})`)
-  }
-
-  return response.json()
+  return getJsonArray(response, 'Failed to load discovery events')
 }
 
 export async function getEventsByArtist(artist) {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
   const artistParam = encodeURIComponent(artist)
   const response = await fetch(`${baseUrl}/api/events/search?artist=${artistParam}`)
 
-  if (!response.ok) {
-    throw new Error(`Failed to search events (${response.status})`)
-  }
-
-  return response.json()
+  return getJsonArray(response, 'Failed to search events')
 }
