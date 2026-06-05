@@ -75,7 +75,7 @@ function createMarkerIcon({ source, isGrouped, isApproximate, isDiscovery, count
   const groupedClass = isGrouped ? 'event-map-marker--grouped' : ''
   const approximateClass = isApproximate ? 'event-map-marker--approximate' : ''
   const discoveryClass = isDiscovery ? 'event-map-marker--discovery' : ''
-  const size = isDiscovery ? (isGrouped ? 24 : 16) : (isGrouped ? 30 : 22)
+  const size = isDiscovery ? (isGrouped ? 20 : 14) : (isGrouped ? 30 : 22)
   const anchor = size / 2
   const countLabel = isGrouped && count > 1 && !isDiscovery ? `<em>${count}</em>` : ''
 
@@ -375,7 +375,10 @@ function MapPreview({
     [geolocatedEvents],
   )
   const showGlobalDiscovery = !hasSearched
-  const showGlobalFallback = showGlobalDiscovery && groupedEventLocations.length === 0
+  const showGlobalFallback =
+    showGlobalDiscovery && !loading && groupedEventLocations.length === 0
+  const showDiscoveryLoadingHint =
+    showGlobalDiscovery && loading && groupedEventLocations.length === 0
   const showDiscoveryErrorHint =
     showGlobalFallback && !loading && Boolean(discoveryError)
   const showEmptySearchHint =
@@ -444,6 +447,11 @@ function MapPreview({
             aria-label="Loading events"
             aria-live="polite"
           />
+        ) : null}
+        {showDiscoveryLoadingHint ? (
+          <div className="map-box__empty-hint map-box__empty-hint--loading" aria-live="polite">
+            <p>Loading live events...</p>
+          </div>
         ) : null}
         {showEmptySearchHint ? (
           <div className="map-box__empty-hint" aria-live="polite">

@@ -12,9 +12,19 @@ class Settings(BaseSettings):
     shotgun_api_base_url: str = "https://api.shotgun.live"
     shotgun_max_events: int = 200
     shotgun_search_months_ahead: int = 6
-    discovery_max_events: int = 250
+    discovery_max_events: int = 500
     discovery_months_ahead: int = 3
-    discovery_cache_ttl_seconds: int = 1800
+    discovery_cache_ttl_seconds: int = 3600
+    discovery_shotgun_max_events: int = 250
+    discovery_ticketmaster_max_events_per_city: int = 25
+    discovery_ticketmaster_max_events_total: int = 250
+    discovery_ticketmaster_seed_cities: str = (
+        "Paris,Lyon,Marseille,London,Manchester,Berlin,Hamburg,Amsterdam,"
+        "Brussels,Madrid,Barcelona,Milan,Rome,Lisbon,Dublin,Vienna,Prague,"
+        "Warsaw,Copenhagen,Stockholm,New York,Los Angeles,Chicago,Miami,"
+        "San Francisco,Seattle,Toronto,Montreal,Vancouver,Tokyo,Seoul,"
+        "Sydney,Melbourne,Sao Paulo,Mexico City"
+    )
     geocoding_url: str = "https://nominatim.openstreetmap.org/search"
     geocoding_user_agent: str = "SoundSpot/1.0"
     backend_cors_origins: str = (
@@ -37,6 +47,14 @@ class Settings(BaseSettings):
             origins.append("http://127.0.0.1:5173")
 
         return list(dict.fromkeys(origins))
+
+    @property
+    def discovery_seed_cities(self) -> list[str]:
+        return [
+            city.strip()
+            for city in self.discovery_ticketmaster_seed_cities.split(",")
+            if city.strip()
+        ]
 
     model_config = SettingsConfigDict(
         env_file=".env",

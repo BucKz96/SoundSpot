@@ -1,5 +1,8 @@
-import httpx
+import calendar
+from datetime import date
 from unicodedata import normalize
+
+import httpx
 
 from app.core.config import settings
 from app.schemas.event import EventResponse
@@ -30,6 +33,15 @@ def _is_valid_coordinate(latitude: float, longitude: float) -> bool:
         and -180 <= longitude <= 180
         and not (latitude == 0 and longitude == 0)
     )
+
+
+def _add_months(value: date, months: int) -> date:
+    month_index = value.month - 1 + months
+    year = value.year + month_index // 12
+    month = month_index % 12 + 1
+    day = min(value.day, calendar.monthrange(year, month)[1])
+
+    return date(year, month, day)
 
 
 def _extract_classification_name(value: object) -> str:
@@ -142,6 +154,7 @@ async def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
 
 async def _search_ticketmaster_events(
     search_params: dict[str, object],
+    max_events: int | None = None,
 ) -> list[EventResponse]:
     api_key = (settings.ticketmaster_api_key or "").strip()
     if not api_key:
@@ -149,14 +162,15 @@ async def _search_ticketmaster_events(
             "Ticketmaster API key is not configured. Set TICKETMASTER_API_KEY in your environment."
         )
 
+    max_events = _get_ticketmaster_max_events(max_events)
+    page_size = min(TICKETMASTER_PAGE_SIZE, max_events)
     base_params = {
         "apikey": api_key,
         "classificationName": "Music",
-        "size": TICKETMASTER_PAGE_SIZE,
+        "size": page_size,
         **search_params,
     }
-    max_events = _get_ticketmaster_max_events()
-    max_pages = max(1, (max_events + TICKETMASTER_PAGE_SIZE - 1) // TICKETMASTER_PAGE_SIZE)
+    max_pages = max(1, (max_events + page_size - 1) // page_size)
     events_raw = []
 
     try:
@@ -214,8 +228,12 @@ def _dedupe_events(events: list[EventResponse]) -> list[EventResponse]:
     return unique_events
 
 
-def _get_ticketmaster_max_events() -> int:
-    return max(1, min(settings.ticketmaster_max_events, TICKETMASTER_MAX_EVENTS_LIMIT))
+def _get_ticketmaster_max_events(max_events: int | None = None) -> int:
+    configured_max_events = (
+        settings.ticketmaster_max_events if max_events is None else max_events
+    )
+
+    return max(1, min(configured_max_events, TICKETMASTER_MAX_EVENTS_LIMIT))
 
 
 def _event_sort_key(event: EventResponse) -> tuple[int, str, str]:
@@ -232,8 +250,13 @@ def _sort_events_by_date(events: list[EventResponse]) -> list[EventResponse]:
     return sorted(events, key=_event_sort_key)
 
 
-def _finalize_events(events: list[EventResponse]) -> list[EventResponse]:
-    return _sort_events_by_date(_dedupe_events(events))[:_get_ticketmaster_max_events()]
+def _finalize_events(
+    events: list[EventResponse],
+    max_events: int | None = None,
+) -> list[EventResponse]:
+    return _sort_events_by_date(_dedupe_events(events))[
+        :_get_ticketmaster_max_events(max_events)
+    ]
 
 
 def _normalize_search_text(value: str) -> str:
@@ -312,6 +335,26 @@ async def search_events_by_city(city: str) -> list[EventResponse]:
         fallback_events = [*fallback_events, *keyword_events]
 
     return _finalize_events(fallback_events)
+
+
+async def search_events_by_city_for_discovery(
+    city: str,
+    max_events: int,
+    months_ahead: int,
+) -> list[EventResponse]:
+    today = date.today()
+    end_date = _add_months(today, max(1, min(months_ahead, 24)))
+    events = await _search_ticketmaster_events(
+        {
+            "city": city,
+            "sort": "date,asc",
+            "startDateTime": f"{today.isoformat()}T00:00:00Z",
+            "endDateTime": f"{end_date.isoformat()}T23:59:59Z",
+        },
+        max_events=max_events,
+    )
+
+    return _finalize_events(events, max_events)
 
 
 async def search_events_by_artist(artist: str) -> list[EventResponse]:
