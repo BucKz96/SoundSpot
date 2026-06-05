@@ -12,21 +12,6 @@ function EventList({
   onPreviousPage,
   onNextPage,
 }) {
-  if (events.length === 0) {
-    return (
-      <section
-        className="events-empty"
-        aria-label="No events"
-        aria-live="polite"
-      >
-        <p className="events-empty__text">
-          {emptyMessage ||
-            'No events to display yet. Try searching for a city.'}
-        </p>
-      </section>
-    )
-  }
-
   const resultLabel = totalEventsCount > 1 ? 'events' : 'event'
   const activeSearchValue = searchValue || searchedCity
   const locationLabel = activeSearchValue
@@ -44,6 +29,31 @@ function EventList({
       ? 'event-list-section--paginated'
       : 'event-list-section--compact',
   ].join(' ')
+
+  if (events.length === 0) {
+    return (
+      <section className={sectionClassName} aria-label="Event list">
+        <div className="event-list-section__header">
+          <div>
+            <h2 className="event-list-section__title">Found events</h2>
+            <p className="event-list-section__meta">
+              {totalEventsCount} {resultLabel} {locationLabel}
+            </p>
+          </div>
+        </div>
+        <div
+          className="events-empty"
+          aria-label="No events"
+          aria-live="polite"
+        >
+          <p className="events-empty__text">
+            {emptyMessage ||
+              'No events to display yet. Try searching for a city.'}
+          </p>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className={sectionClassName} aria-label="Event list">

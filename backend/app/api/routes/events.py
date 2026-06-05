@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.event import EventResponse
+from app.services.discovery_service import DiscoveryAPIError, get_discovery_events
 from app.services.event_aggregator_service import (
     EventAggregationError,
     search_events_by_city_across_sources,
@@ -61,6 +62,14 @@ def get_mock_events() -> list[EventResponse]:
 @router.get("", response_model=list[EventResponse])
 def list_events() -> list[EventResponse]:
     return get_mock_events()
+
+
+@router.get("/discovery", response_model=list[EventResponse])
+async def discovery_events() -> list[EventResponse]:
+    try:
+        return await get_discovery_events()
+    except DiscoveryAPIError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
 
 
 @router.get("/search", response_model=list[EventResponse])

@@ -3,23 +3,144 @@ import SiteHeader from '../components/SiteHeader'
 import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
-import { useState } from 'react'
-import { getEventsByArtist, getEventsByCity } from '../services/api'
+import EventFilters from '../components/EventFilters'
+import { useEffect, useMemo, useState } from 'react'
+import { getDiscoveryEvents, getEventsByArtist, getEventsByCity } from '../services/api'
 
 const EVENTS_PER_PAGE = 12
+const DEFAULT_GENRE_FILTER = 'all'
+const DEFAULT_SOURCE_FILTER = 'all'
+
+const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+
+function isValidISODate(value) {
+  return ISO_DATE_PATTERN.test(value)
+}
+
+function normalizeISODate(value) {
+  const trimmed = (value || '').trim()
+  if (!trimmed) return null
+
+  const isoPrefix = trimmed.slice(0, 10)
+  return isValidISODate(isoPrefix) ? isoPrefix : null
+}
+
+function matchesDateRange(eventDateValue, dateFromValue, dateToValue) {
+  const dateFrom = normalizeISODate(dateFromValue)
+  const dateTo = normalizeISODate(dateToValue)
+  const hasDateFilter = Boolean(dateFrom || dateTo)
+  if (!hasDateFilter) return true
+
+  const eventDate = normalizeISODate(eventDateValue)
+  if (!eventDate) return false
+  if (dateFrom && eventDate < dateFrom) return false
+  if (dateTo && eventDate > dateTo) return false
+
+  return true
+}
 
 function HomePage() {
   const [events, setEvents] = useState([])
+  const [discoveryEvents, setDiscoveryEvents] = useState([])
+  const [discoveryLoading, setDiscoveryLoading] = useState(false)
+  const [discoveryError, setDiscoveryError] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
   const [hasSearched, setHasSearched] = useState(false)
   const [currentPage, setCurrentPage] = useState(1)
+  const [selectedGenre, setSelectedGenre] = useState(DEFAULT_GENRE_FILTER)
+  const [selectedSource, setSelectedSource] = useState(DEFAULT_SOURCE_FILTER)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+
+  const filteredEvents = useMemo(
+    () =>
+      events.filter((event) => {
+        const eventGenres = Array.isArray(event.genres) ? event.genres : []
+        const matchesGenre =
+          selectedGenre === DEFAULT_GENRE_FILTER ||
+          eventGenres.includes(selectedGenre)
+        const matchesSource =
+          selectedSource === DEFAULT_SOURCE_FILTER ||
+          (event.source || '').trim().toLowerCase() === selectedSource
+
+        return matchesGenre && matchesSource && matchesDateRange(event.date, dateFrom, dateTo)
+      }),
+    [events, selectedGenre, selectedSource, dateFrom, dateTo],
+  )
 
   const startIndex = (currentPage - 1) * EVENTS_PER_PAGE
   const endIndex = startIndex + EVENTS_PER_PAGE
-  const paginatedEvents = events.slice(startIndex, endIndex)
-  const totalPages = Math.max(1, Math.ceil(events.length / EVENTS_PER_PAGE))
+  const paginatedEvents = filteredEvents.slice(startIndex, endIndex)
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PER_PAGE))
+  const mapEvents = hasSearched ? filteredEvents : discoveryEvents
+  const mapLoading = hasSearched ? loading : discoveryLoading
+  const emptyEventsMessage =
+    events.length > 0 && filteredEvents.length === 0
+      ? 'No events match these filters. Try another genre, date range, or source.'
+      : lastSearch.value
+        ? `No events found for ${lastSearch.value}. Try another genre, date range, or source.`
+        : 'No events to display yet.'
+
+  useEffect(() => {
+    let ignore = false
+
+    async function loadDiscoveryEvents() {
+      setDiscoveryLoading(true)
+      setDiscoveryError('')
+
+      try {
+        const discoveryResults = await getDiscoveryEvents()
+        if (!ignore) {
+          setDiscoveryEvents(discoveryResults)
+        }
+      } catch (err) {
+        if (!ignore) {
+          setDiscoveryError(err instanceof Error ? err.message : 'Unknown error')
+          setDiscoveryEvents([])
+        }
+      } finally {
+        if (!ignore) {
+          setDiscoveryLoading(false)
+        }
+      }
+    }
+
+    loadDiscoveryEvents()
+
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  function resetFilters() {
+    setSelectedGenre(DEFAULT_GENRE_FILTER)
+    setSelectedSource(DEFAULT_SOURCE_FILTER)
+    setDateFrom('')
+    setDateTo('')
+    setCurrentPage(1)
+  }
+
+  function handleGenreChange(value) {
+    setSelectedGenre(value)
+    setCurrentPage(1)
+  }
+
+  function handleSourceChange(value) {
+    setSelectedSource(value)
+    setCurrentPage(1)
+  }
+
+  function handleDateFromChange(value) {
+    setDateFrom(value)
+    setCurrentPage(1)
+  }
+
+  function handleDateToChange(value) {
+    setDateTo(value)
+    setCurrentPage(1)
+  }
 
   function handlePreviousPage() {
     setCurrentPage((page) => Math.max(1, page - 1))
@@ -40,6 +161,7 @@ function HomePage() {
       setLastSearch({ type: searchType, value: '' })
       setHasSearched(false)
       setCurrentPage(1)
+      resetFilters()
       return
     }
 
@@ -48,14 +170,15 @@ function HomePage() {
     setLastSearch({ type: searchType, value: normalizedValue })
     setHasSearched(true)
     setCurrentPage(1)
+    resetFilters()
 
     try {
-      const filteredEvents =
+      const searchResults =
         searchType === 'artist'
           ? await getEventsByArtist(normalizedValue)
           : await getEventsByCity(normalizedValue)
 
-      setEvents(filteredEvents)
+      setEvents(searchResults)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error')
     } finally {
@@ -85,11 +208,28 @@ function HomePage() {
             </div>
           ) : null}
           <div className="content-panel content-panel--map">
+            {hasSearched && !loading && !error ? (
+              <EventFilters
+                selectedGenre={selectedGenre}
+                selectedSource={selectedSource}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                searchLabel={lastSearch.value}
+                eventsCount={filteredEvents.length}
+                loading={loading}
+                onGenreChange={handleGenreChange}
+                onSourceChange={handleSourceChange}
+                onDateFromChange={handleDateFromChange}
+                onDateToChange={handleDateToChange}
+                onReset={resetFilters}
+              />
+            ) : null}
             <MapPreview
-              events={events}
-              loading={loading}
-              searchedCity={lastSearch.type === 'city' ? lastSearch.value : ''}
-              searchLabel={lastSearch.value}
+              events={mapEvents}
+              loading={mapLoading}
+              hasSearched={hasSearched}
+              searchValue={lastSearch.value}
+              discoveryError={discoveryError}
             />
           </div>
           {hasSearched && !loading && !error ? (
@@ -98,16 +238,12 @@ function HomePage() {
                 events={paginatedEvents}
                 searchType={lastSearch.type}
                 searchValue={lastSearch.value}
-                totalEventsCount={events.length}
+                totalEventsCount={filteredEvents.length}
                 currentPage={currentPage}
                 eventsPerPage={EVENTS_PER_PAGE}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}
-                emptyMessage={
-                  lastSearch.value
-                    ? `No events found for this ${lastSearch.type}.`
-                    : 'No events to display yet.'
-                }
+                emptyMessage={emptyEventsMessage}
               />
             </div>
           ) : null}

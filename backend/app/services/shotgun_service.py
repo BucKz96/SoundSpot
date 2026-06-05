@@ -8,20 +8,29 @@ import httpx
 
 from app.core.config import settings
 from app.schemas.event import EventResponse
+from app.utils.genre_normalizer import normalize_genres
 
-SHOTGUN_MAX_EVENTS_LIMIT = 200
+SHOTGUN_MAX_EVENTS_LIMIT = 500
 
 
 class ShotgunAPIError(Exception):
     pass
 
 
-def _get_shotgun_max_events() -> int:
-    return max(1, min(settings.shotgun_max_events, SHOTGUN_MAX_EVENTS_LIMIT))
+def _get_shotgun_max_events(max_events: int | None = None) -> int:
+    configured_max_events = settings.shotgun_max_events if max_events is None else max_events
+
+    return max(1, min(configured_max_events, SHOTGUN_MAX_EVENTS_LIMIT))
 
 
-def _get_shotgun_search_months_ahead() -> int:
-    return max(1, min(settings.shotgun_search_months_ahead, 24))
+def _get_shotgun_search_months_ahead(months_ahead: int | None = None) -> int:
+    configured_months_ahead = (
+        settings.shotgun_search_months_ahead
+        if months_ahead is None
+        else months_ahead
+    )
+
+    return max(1, min(configured_months_ahead, 24))
 
 
 def _add_months(value: date, months: int) -> date:
@@ -78,6 +87,25 @@ def _extract_name(value: Any) -> str:
         return str(_first_present(value, ("name", "displayName", "title")) or "")
 
     return ""
+
+
+def _extract_style_values(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [
+            name
+            for item in value
+            if (name := _extract_name(item).strip())
+        ]
+
+    name = _extract_name(value).strip()
+    return [name] if name else []
+
+
+def _extract_shotgun_genre_values(event: dict[str, Any]) -> list[str]:
+    return [
+        *_extract_style_values(event.get("eventTags")),
+        *_extract_style_values(event.get("typeOfPlace")),
+    ]
 
 
 def _extract_artist(event: dict[str, Any]) -> str:
@@ -170,6 +198,7 @@ def _shotgun_event_to_response(event: dict[str, Any]) -> EventResponse:
         ticket_url=event.get("url") or "",
         is_location_approximate=is_location_approximate,
         source="shotgun",
+        genres=normalize_genres(_extract_shotgun_genre_values(event)),
     )
 
 
@@ -222,7 +251,11 @@ def _event_sort_key(event: EventResponse) -> tuple[int, str, str]:
     return (0, f"{date_part}T{time_part or '00:00'}", event.name.casefold())
 
 
-async def search_shotgun_events(city: str | None = None) -> list[EventResponse]:
+async def search_shotgun_events(
+    city: str | None = None,
+    max_events: int | None = None,
+    months_ahead: int | None = None,
+) -> list[EventResponse]:
     api_key = (settings.shotgun_api_key or "").strip()
     if not api_key:
         raise ValueError(
@@ -231,8 +264,11 @@ async def search_shotgun_events(city: str | None = None) -> list[EventResponse]:
 
     today = date.today()
     from_date = today.isoformat()
-    to_date = _add_months(today, _get_shotgun_search_months_ahead()).isoformat()
-    max_events = _get_shotgun_max_events()
+    to_date = _add_months(
+        today,
+        _get_shotgun_search_months_ahead(months_ahead),
+    ).isoformat()
+    max_events = _get_shotgun_max_events(max_events)
     base_url = (settings.shotgun_api_base_url or "https://api.shotgun.live").rstrip("/")
     events_url = f"{base_url}/events"
     raw_events = []
