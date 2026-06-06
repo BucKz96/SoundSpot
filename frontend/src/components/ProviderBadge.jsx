@@ -3,6 +3,7 @@ import { getEventProvider } from '../utils/eventProviders'
 function getProviderActionLabel(provider) {
   if (provider.key === 'ticketmaster') return 'Open event on Ticketmaster'
   if (provider.key === 'shotgun') return 'Open event on Shotgun'
+  if (provider.key === 'openagenda') return 'Open event on OpenAgenda'
   return 'Open event source'
 }
 
@@ -28,6 +29,13 @@ function ProviderBadge({ source, compact = false, href = '', unavailable = false
           alt=""
           aria-hidden="true"
           onError={(event) => {
+            if (
+              provider.fallbackIcon &&
+              event.currentTarget.src !== new URL(provider.fallbackIcon, window.location.origin).href
+            ) {
+              event.currentTarget.src = provider.fallbackIcon
+              return
+            }
             event.currentTarget.hidden = true
           }}
         />
