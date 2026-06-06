@@ -2,6 +2,7 @@ import asyncio
 from unicodedata import normalize
 
 from app.schemas.event import EventResponse
+from app.services.openagenda_service import search_openagenda_events_by_city
 from app.services.shotgun_service import search_shotgun_events
 from app.services.ticketmaster_service import search_events_by_city
 
@@ -65,6 +66,7 @@ async def search_events_by_city_across_sources(city: str) -> list[EventResponse]
     results = await asyncio.gather(
         search_events_by_city(city),
         search_shotgun_events(city),
+        search_openagenda_events_by_city(city),
         return_exceptions=True,
     )
     events: list[EventResponse] = []

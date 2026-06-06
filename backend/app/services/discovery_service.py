@@ -7,6 +7,10 @@ from unicodedata import normalize
 
 from app.core.config import settings
 from app.schemas.event import EventResponse
+from app.services.openagenda_service import (
+    OpenAgendaAPIError,
+    search_openagenda_discovery_events,
+)
 from app.services.shotgun_service import ShotgunAPIError, search_shotgun_events
 from app.services.ticketmaster_service import (
     TicketmasterAPIError,
@@ -22,6 +26,7 @@ _cached_events: list[EventResponse] = []
 _cache_expires_at = 0.0
 _has_cached_response = False
 _cache_ticketmaster_attempted = False
+_cache_openagenda_attempted = False
 _ticketmaster_semaphore = asyncio.Semaphore(4)
 _refresh_lock = asyncio.Lock()
 logger = logging.getLogger(__name__)
@@ -69,11 +74,22 @@ def _expects_ticketmaster_discovery() -> bool:
     )
 
 
+def _expects_openagenda_discovery() -> bool:
+    return bool(
+        (settings.openagenda_api_key or "").strip()
+        and settings.discovery_openagenda_seed_agenda_uids
+        and settings.discovery_openagenda_max_events > 0
+    )
+
+
 def _is_cache_usable() -> bool:
     if not _has_cached_response:
         return False
 
     if _expects_ticketmaster_discovery() and not _cache_ticketmaster_attempted:
+        return False
+
+    if _expects_openagenda_discovery() and not _cache_openagenda_attempted:
         return False
 
     return True
@@ -83,11 +99,14 @@ def _safe_error_message(error: BaseException) -> str:
     message = str(error)
     ticketmaster_api_key = (settings.ticketmaster_api_key or "").strip()
     shotgun_api_key = (settings.shotgun_api_key or "").strip()
+    openagenda_api_key = (settings.openagenda_api_key or "").strip()
 
     if ticketmaster_api_key:
         message = message.replace(ticketmaster_api_key, "[redacted]")
     if shotgun_api_key:
         message = message.replace(shotgun_api_key, "[redacted]")
+    if openagenda_api_key:
+        message = message.replace(openagenda_api_key, "[redacted]")
 
     return message
 
@@ -171,7 +190,7 @@ def _limit_discovery_events(events: list[EventResponse]) -> list[EventResponse]:
 
     balanced_sources = [
         source
-        for source in ("shotgun", "ticketmaster")
+        for source in ("shotgun", "ticketmaster", "openagenda")
         if events_by_source.get(source)
     ]
 
@@ -315,9 +334,20 @@ async def _get_ticketmaster_discovery_events() -> list[EventResponse]:
     return events
 
 
+async def _get_openagenda_discovery_events() -> list[EventResponse]:
+    events = await search_openagenda_discovery_events()
+    logger.info(
+        "Discovery OpenAgenda loaded events=%s agenda_uids=%s",
+        len(events),
+        settings.discovery_openagenda_seed_agenda_uids,
+    )
+
+    return events
+
+
 async def get_discovery_events() -> list[EventResponse]:
     global _cached_events, _cache_expires_at, _has_cached_response
-    global _cache_ticketmaster_attempted
+    global _cache_ticketmaster_attempted, _cache_openagenda_attempted
 
     now = monotonic()
     if _has_cached_response and now < _cache_expires_at and _is_cache_usable():
@@ -344,16 +374,18 @@ async def get_discovery_events() -> list[EventResponse]:
         if _has_cached_response and now < _cache_expires_at:
             logger.info(
                 "Discovery cache bypassed events=%s ttl_remaining_seconds=%s "
-                "sources=%s ticketmaster_attempted=%s",
+                "sources=%s ticketmaster_attempted=%s openagenda_attempted=%s",
                 len(_cached_events),
                 int(_cache_expires_at - now),
                 _source_counts(_cached_events),
                 _cache_ticketmaster_attempted,
+                _cache_openagenda_attempted,
             )
 
         results = await asyncio.gather(
             _get_shotgun_discovery_events(),
             _get_ticketmaster_discovery_events(),
+            _get_openagenda_discovery_events(),
             return_exceptions=True,
         )
         events = []
@@ -380,6 +412,7 @@ async def get_discovery_events() -> list[EventResponse]:
                 _cached_events = discovery_events
                 _has_cached_response = True
                 _cache_ticketmaster_attempted = True
+                _cache_openagenda_attempted = True
                 _cache_expires_at = now + _get_discovery_cache_ttl_seconds()
                 logger.info(
                     "Discovery cache refreshed events=%s ttl_seconds=%s sources=%s",
@@ -402,7 +435,15 @@ async def get_discovery_events() -> list[EventResponse]:
             error_messages = "; ".join(
                 _safe_error_message(error)
                 for error in errors
-                if isinstance(error, (ShotgunAPIError, TicketmasterAPIError, ValueError))
+                if isinstance(
+                    error,
+                    (
+                        ShotgunAPIError,
+                        TicketmasterAPIError,
+                        OpenAgendaAPIError,
+                        ValueError,
+                    ),
+                )
                 and str(error)
             )
             raise DiscoveryAPIError(
