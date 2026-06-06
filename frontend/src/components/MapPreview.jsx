@@ -5,6 +5,11 @@ import ProviderBadge from './ProviderBadge'
 
 const DEFAULT_CENTER = [20, 0]
 const DEFAULT_ZOOM = 2
+const MIN_MAP_ZOOM = 2
+const WORLD_BOUNDS = [
+  [-85, -180],
+  [85, 180],
+]
 const MAX_GROUPED_POPUP_EVENTS = 6
 const DISCOVERY_JITTER_STEP = 0.035
 const CARTO_DARK_TILES_URL =
@@ -45,6 +50,7 @@ function getSourceMarkerClass(source) {
 
   if (normalizedSource === 'ticketmaster') return 'event-map-marker--ticketmaster'
   if (normalizedSource === 'shotgun') return 'event-map-marker--shotgun'
+  if (normalizedSource === 'openagenda') return 'event-map-marker--openagenda'
   return 'event-map-marker--default'
 }
 
@@ -399,12 +405,18 @@ function MapPreview({
         <MapContainer
           center={DEFAULT_CENTER}
           zoom={DEFAULT_ZOOM}
-          scrollWheelZoom={false}
+          minZoom={MIN_MAP_ZOOM}
+          maxBounds={WORLD_BOUNDS}
+          maxBoundsViscosity={1}
+          scrollWheelZoom
+          dragging
+          worldCopyJump={false}
           className="event-map"
         >
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
             subdomains="abcd"
+            noWrap
             url={CARTO_DARK_TILES_URL}
           />
           <MapAutoFit events={groupedEventLocations} hasSearched={hasSearched} />

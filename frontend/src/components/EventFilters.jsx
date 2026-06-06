@@ -22,6 +22,7 @@ const SOURCE_OPTIONS = [
   { value: 'all', label: 'All sources' },
   { value: 'shotgun', label: 'Shotgun' },
   { value: 'ticketmaster', label: 'Ticketmaster' },
+  { value: 'openagenda', label: 'OpenAgenda' },
 ]
 
 function FilterSelect({ value, options, ariaLabel, onChange, className = '' }) {

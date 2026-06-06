@@ -9,6 +9,12 @@ const PROVIDERS = {
     label: 'Shotgun',
     icon: '/providers/shotgun.png',
   },
+  openagenda: {
+    key: 'openagenda',
+    label: 'OpenAgenda',
+    icon: '/providers/openagenda.svg',
+    fallbackIcon: '/providers/openagenda.png',
+  },
 }
 
 export function getEventProvider(source) {
@@ -22,5 +28,6 @@ export function getEventProvider(source) {
     key: 'unknown',
     label: 'Event source',
     icon: '',
+    fallbackIcon: '',
   }
 }
