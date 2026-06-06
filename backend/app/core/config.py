@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     ticketmaster_api_key: str = ""
     openagenda_api_key: str = ""
     openagenda_agenda_uids: str = ""
+    openagenda_search_agenda_uids: str = ""
+    openagenda_city_search_max_events: int = 50
+    openagenda_city_search_max_agendas: int = 5
     city_search_radius_km: int = 30
     ticketmaster_max_events: int = 150
     shotgun_api_key: str = ""
@@ -67,6 +70,18 @@ class Settings(BaseSettings):
             for agenda_uid in self.openagenda_agenda_uids.split(",")
             if agenda_uid.strip()
         ]
+
+    @property
+    def openagenda_city_search_agenda_uids(self) -> list[str]:
+        configured_uids = self.openagenda_search_agenda_uids.strip()
+        if configured_uids:
+            return [
+                agenda_uid.strip()
+                for agenda_uid in configured_uids.split(",")
+                if agenda_uid.strip()
+            ]
+
+        return self.discovery_openagenda_seed_agenda_uids
 
     @property
     def discovery_openagenda_seed_agenda_uids(self) -> list[str]:

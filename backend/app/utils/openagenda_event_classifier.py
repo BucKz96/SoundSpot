@@ -45,9 +45,12 @@ EXCLUSION_SIGNALS = (
     "vide-grenier",
     "conference",
     "atelier",
+    "visite",
     "visite guidee",
     "exposition",
     "marche",
+    "pop up",
+    "createurs",
     "sport",
     "yoga",
     "formation",
@@ -70,6 +73,14 @@ STRONG_MUSIC_SIGNALS = {
     "classical",
 }
 
+EXPLICIT_PERFORMANCE_SIGNALS = {
+    "fete_music",
+    "concert",
+    "festival",
+    "live",
+    "club",
+    "dj",
+}
 
 @dataclass(frozen=True)
 class OpenAgendaEventClassification:
@@ -132,6 +143,7 @@ def classify_openagenda_event(event: dict) -> OpenAgendaEventClassification:
     text_values = collect_openagenda_text_values(event)
     normalized_values = [_normalize_text(value) for value in text_values]
     blob = " ".join(normalized_values)
+    title_blob = " ".join(_normalize_text(value) for value in _text_values(event.get("title")))
     signals = []
     genre_values = []
 
@@ -143,6 +155,9 @@ def classify_openagenda_event(event: dict) -> OpenAgendaEventClassification:
     exclusion_signals = [
         signal for signal in EXCLUSION_SIGNALS if _contains_signal(blob, signal)
     ]
+    title_exclusion_signals = [
+        signal for signal in EXCLUSION_SIGNALS if _contains_signal(title_blob, signal)
+    ]
     strong_signal_count = sum(1 for signal in signals if signal in STRONG_MUSIC_SIGNALS)
     genres = normalize_genres(genre_values)
     reliable_genres = [genre for genre in genres if genre != "other"]
@@ -152,12 +167,15 @@ def classify_openagenda_event(event: dict) -> OpenAgendaEventClassification:
         or ("music" in signals and len(signals) >= 2)
     )
 
-    if exclusion_signals and strong_signal_count == 0 and not reliable_genres:
+    has_explicit_performance = any(
+        signal in EXPLICIT_PERFORMANCE_SIGNALS for signal in signals
+    )
+    if title_exclusion_signals or (exclusion_signals and not has_explicit_performance):
         is_music_event = False
 
     return OpenAgendaEventClassification(
         is_music_event=is_music_event,
-        genres=reliable_genres if is_music_event else [],
+        genres=(reliable_genres or ["other"]) if is_music_event else [],
         signals=signals,
         exclusion_signals=exclusion_signals,
     )

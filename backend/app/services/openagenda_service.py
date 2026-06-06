@@ -1,4 +1,6 @@
 from datetime import date, datetime
+from unicodedata import normalize
+from urllib.parse import urlparse
 
 import httpx
 
@@ -14,8 +16,16 @@ class OpenAgendaAPIError(Exception):
     pass
 
 
-def _get_openagenda_max_events() -> int:
+def _get_openagenda_discovery_max_events() -> int:
     return max(1, min(settings.discovery_openagenda_max_events, 500))
+
+
+def _get_openagenda_city_search_max_events() -> int:
+    return max(1, min(settings.openagenda_city_search_max_events, 100))
+
+
+def _get_openagenda_city_search_max_agendas() -> int:
+    return max(1, min(settings.openagenda_city_search_max_agendas, 10))
 
 
 def _safe_float(value: object) -> float:
@@ -90,6 +100,33 @@ def _is_cancelled(raw: dict) -> bool:
     )
 
 
+REGISTRATION_URL_SIGNALS = (
+    "billet",
+    "booking",
+    "eventbrite",
+    "fever",
+    "helloasso",
+    "inscription",
+    "placeminute",
+    "reservation",
+    "seetickets",
+    "shotgun",
+    "ticket",
+    "weezevent",
+)
+
+
+def _is_relevant_registration_url(value: str) -> bool:
+    parsed = urlparse(value.strip())
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        return False
+
+    normalized_url = _normalize_search_text(
+        f"{parsed.netloc} {parsed.path} {parsed.query}"
+    )
+    return any(signal in normalized_url for signal in REGISTRATION_URL_SIGNALS)
+
+
 def _registration_url(raw: dict) -> str:
     for item in raw.get("registration") or []:
         if not isinstance(item, dict):
@@ -97,17 +134,21 @@ def _registration_url(raw: dict) -> str:
         if item.get("type") != "link":
             continue
         value = item.get("value")
-        if isinstance(value, str) and value.strip():
+        if (
+            isinstance(value, str)
+            and value.strip()
+            and _is_relevant_registration_url(value)
+        ):
             return value.strip()
-
-    for item in raw.get("links") or []:
-        if isinstance(item, dict) and isinstance(item.get("link"), str):
-            return item["link"].strip()
 
     return ""
 
 
 def _event_url(raw: dict, agenda_slug: str) -> str:
+    registration_url = _registration_url(raw)
+    if registration_url:
+        return registration_url
+
     for key in ("canonicalUrl", "url", "publicUrl"):
         value = raw.get(key)
         if isinstance(value, str) and value.strip():
@@ -117,7 +158,7 @@ def _event_url(raw: dict, agenda_slug: str) -> str:
     if agenda_slug and event_slug:
         return f"https://openagenda.com/{agenda_slug}/events/{event_slug}"
 
-    return _registration_url(raw)
+    return ""
 
 
 def _event_sort_key(event: EventResponse) -> tuple[str, str, str]:
@@ -125,6 +166,28 @@ def _event_sort_key(event: EventResponse) -> tuple[str, str, str]:
         (event.date or "").strip(),
         (event.time or "").strip() or "00:00:00",
         event.name.casefold(),
+    )
+
+
+def _normalize_search_text(value: object) -> str:
+    normalized = normalize("NFKD", str(value or ""))
+    ascii_value = normalized.encode("ascii", "ignore").decode("ascii")
+
+    return " ".join(ascii_value.casefold().split())
+
+
+def _event_matches_city(raw: dict, city: str) -> bool:
+    location = raw.get("location") or {}
+    city_query = _normalize_search_text(city)
+    city_values = (
+        location.get("city"),
+        location.get("adminLevel4"),
+    )
+
+    return any(
+        _normalize_search_text(value) == city_query
+        for value in city_values
+        if value
     )
 
 
@@ -146,8 +209,16 @@ def _normalize_openagenda_event(raw: dict, agenda_slug: str) -> EventResponse | 
     title = _text(raw.get("title"))
     venue = location.get("name") or location.get("address") or "TBA"
 
+    event_uid = str(raw.get("uid") or "").strip()
+    if not event_uid:
+        return None
+
+    ticket_url = _event_url(raw, agenda_slug)
+    if not ticket_url:
+        return None
+
     return EventResponse(
-        id=str(raw.get("uid") or ""),
+        id=f"openagenda:{event_uid}",
         name=title or "OpenAgenda event",
         artist=title or "Various artists",
         city=location.get("city") or location.get("adminLevel4") or "",
@@ -157,7 +228,7 @@ def _normalize_openagenda_event(raw: dict, agenda_slug: str) -> EventResponse | 
         time=event_time,
         latitude=latitude,
         longitude=longitude,
-        ticket_url=_event_url(raw, agenda_slug),
+        ticket_url=ticket_url,
         is_location_approximate=False,
         source="openagenda",
         genres=classification.genres,
@@ -199,32 +270,58 @@ async def _fetch_agenda(client: httpx.AsyncClient, agenda_uid: str) -> dict:
     )
 
 
+async def _search_agendas_by_city(
+    client: httpx.AsyncClient,
+    city: str,
+) -> list[dict]:
+    data = await _get_json(
+        client,
+        "/agendas",
+        {
+            "search": city,
+            "size": _get_openagenda_city_search_max_agendas(),
+            "sort": "recentlyAddedEvents.desc",
+            "includeFields[]": ["uid", "slug", "title"],
+        },
+    )
+
+    return [agenda for agenda in data.get("agendas") or [] if isinstance(agenda, dict)]
+
+
 async def _fetch_agenda_events(
     client: httpx.AsyncClient,
     agenda_uid: str,
     max_events: int,
+    city: str = "",
 ) -> list[dict]:
+    params: dict[str, object] = {
+        "relative[]": ["current", "upcoming"],
+        "size": min(max_events, OPENAGENDA_PAGE_SIZE_LIMIT),
+        "includeFields[]": [
+            "uid",
+            "slug",
+            "title",
+            "description",
+            "longDescription",
+            "keywords",
+            "timings",
+            "location",
+            "registration",
+            "links",
+            "canonicalUrl",
+            "url",
+            "publicUrl",
+            "status",
+            "state",
+        ],
+    }
+    if city:
+        params["location.adminLevel4"] = city
+
     data = await _get_json(
         client,
         f"/agendas/{agenda_uid}/events",
-        {
-            "relative[]": ["current", "upcoming"],
-            "size": min(max_events, OPENAGENDA_PAGE_SIZE_LIMIT),
-            "includeFields[]": [
-                "uid",
-                "slug",
-                "title",
-                "description",
-                "longDescription",
-                "keywords",
-                "timings",
-                "location",
-                "registration",
-                "links",
-                "status",
-                "state",
-            ],
-        },
+        params,
     )
 
     return [event for event in data.get("events") or [] if isinstance(event, dict)]
@@ -235,7 +332,7 @@ async def search_openagenda_discovery_events() -> list[EventResponse]:
     if not agenda_uids:
         return []
 
-    max_events = _get_openagenda_max_events()
+    max_events = _get_openagenda_discovery_max_events()
     events = []
 
     async with httpx.AsyncClient(timeout=30.0) as client:
@@ -248,6 +345,56 @@ async def search_openagenda_discovery_events() -> list[EventResponse]:
                 continue
 
             for raw_event in raw_events:
+                event = _normalize_openagenda_event(raw_event, agenda_slug)
+                if event is not None:
+                    events.append(event)
+                if len(events) >= max_events:
+                    return sorted(events, key=_event_sort_key)
+
+    return sorted(events, key=_event_sort_key)[:max_events]
+
+
+async def search_openagenda_events_by_city(city: str) -> list[EventResponse]:
+    city_query = city.strip()
+    if not city_query:
+        return []
+
+    max_events = _get_openagenda_city_search_max_events()
+    events = []
+
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        try:
+            agendas = await _search_agendas_by_city(client, city_query)
+        except OpenAgendaAPIError:
+            agendas = []
+
+        agendas_by_uid = {
+            str(agenda.get("uid") or ""): agenda
+            for agenda in agendas
+            if agenda.get("uid")
+        }
+        for agenda_uid in settings.openagenda_city_search_agenda_uids:
+            agendas_by_uid.setdefault(agenda_uid, {"uid": agenda_uid})
+
+        per_agenda_max_events = min(25, max_events)
+        for agenda_uid, agenda in agendas_by_uid.items():
+            try:
+                if not agenda.get("slug"):
+                    agenda = await _fetch_agenda(client, agenda_uid)
+                agenda_slug = agenda.get("slug") or ""
+                raw_events = await _fetch_agenda_events(
+                    client,
+                    agenda_uid,
+                    per_agenda_max_events,
+                    city=city_query,
+                )
+            except OpenAgendaAPIError:
+                continue
+
+            for raw_event in raw_events:
+                if not _event_matches_city(raw_event, city_query):
+                    continue
+
                 event = _normalize_openagenda_event(raw_event, agenda_slug)
                 if event is not None:
                     events.append(event)
