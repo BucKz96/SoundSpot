@@ -294,6 +294,15 @@ function HomePage() {
                 <p>Explore large concerts, major venues and international event listings.</p>
               </div>
             </article>
+            <article className="source-card">
+              <span className="source-card__icon" aria-hidden="true">
+                <img src="/providers/openagenda.png" alt="" />
+              </span>
+              <div>
+                <h3>OpenAgenda</h3>
+                <p>Discover curated local concerts, festivals and cultural music events across France and Europe.</p>
+              </div>
+            </article>
           </div>
         </section>
 
