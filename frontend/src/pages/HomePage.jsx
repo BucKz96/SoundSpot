@@ -10,8 +10,21 @@ import { getDiscoveryEvents, getEventsByArtist, getEventsByCity } from '../servi
 const EVENTS_PER_PAGE = 12
 const DEFAULT_GENRE_FILTER = 'all'
 const DEFAULT_SOURCE_FILTER = 'all'
+const DEFAULT_QUICK_FILTER = ''
+const DATE_QUICK_FILTERS = new Set(['tonight', 'week', 'month'])
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+const CATEGORY_GENRES = {
+  clubs: new Set(['club', 'electronic', 'techno', 'house']),
+  electronic: new Set(['electronic', 'techno', 'house']),
+  festivals: new Set(['festival']),
+}
+const CATEGORY_KEYWORDS = {
+  clubs: ['club', 'nightlife', 'club night', 'dj set', 'rave', 'party', 'soiree'],
+  electronic: ['electronic', 'techno', 'house', 'electro', 'dj set'],
+  festivals: ['festival', 'fest'],
+}
+const NON_CONCERT_GENRES = new Set(['club', 'festival'])
 
 function isValidISODate(value) {
   return ISO_DATE_PATTERN.test(value)
@@ -39,6 +52,87 @@ function matchesDateRange(eventDateValue, dateFromValue, dateToValue) {
   return true
 }
 
+function formatLocalISODate(date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function addDays(date, days) {
+  const nextDate = new Date(date)
+  nextDate.setDate(nextDate.getDate() + days)
+  return nextDate
+}
+
+function getQuickDateRange(filter, today = new Date()) {
+  const currentDate = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  )
+
+  if (filter === 'tonight') {
+    const date = formatLocalISODate(currentDate)
+    return { dateFrom: date, dateTo: date }
+  }
+
+  if (filter === 'week') {
+    const daysUntilSunday = (7 - currentDate.getDay()) % 7
+    return {
+      dateFrom: formatLocalISODate(currentDate),
+      dateTo: formatLocalISODate(addDays(currentDate, daysUntilSunday)),
+    }
+  }
+
+  const endOfMonth = new Date(
+    currentDate.getFullYear(),
+    currentDate.getMonth() + 1,
+    0,
+  )
+
+  return {
+    dateFrom: formatLocalISODate(currentDate),
+    dateTo: formatLocalISODate(endOfMonth),
+  }
+}
+
+function normalizeFilterText(value) {
+  return (value || '')
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function matchesCategoryQuickFilter(event, filter) {
+  if (!filter) return true
+
+  const genres = Array.isArray(event.genres)
+    ? event.genres.map((genre) => normalizeFilterText(genre))
+    : []
+  const searchableText = normalizeFilterText(
+    `${event.name || ''} ${event.venue || ''}`,
+  )
+
+  if (filter === 'concerts') {
+    const hasConcertGenre = genres.some(
+      (genre) => genre && !NON_CONCERT_GENRES.has(genre),
+    )
+    const hasConcertKeyword = ['concert', 'live', 'gig', 'show', 'tour'].some(
+      (keyword) => searchableText.includes(keyword),
+    )
+    return hasConcertGenre || hasConcertKeyword
+  }
+
+  return (
+    genres.some((genre) => CATEGORY_GENRES[filter]?.has(genre)) ||
+    CATEGORY_KEYWORDS[filter]?.some((keyword) =>
+      searchableText.includes(keyword),
+    ) ||
+    false
+  )
+}
+
 function HomePage() {
   const [events, setEvents] = useState([])
   const [discoveryEvents, setDiscoveryEvents] = useState([])
@@ -53,6 +147,7 @@ function HomePage() {
   const [selectedSource, setSelectedSource] = useState(DEFAULT_SOURCE_FILTER)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
+  const [activeQuickFilter, setActiveQuickFilter] = useState(DEFAULT_QUICK_FILTER)
 
   const filteredEvents = useMemo(
     () =>
@@ -65,9 +160,24 @@ function HomePage() {
           selectedSource === DEFAULT_SOURCE_FILTER ||
           (event.source || '').trim().toLowerCase() === selectedSource
 
-        return matchesGenre && matchesSource && matchesDateRange(event.date, dateFrom, dateTo)
+        return (
+          matchesGenre &&
+          matchesSource &&
+          matchesDateRange(event.date, dateFrom, dateTo) &&
+          matchesCategoryQuickFilter(
+            event,
+            DATE_QUICK_FILTERS.has(activeQuickFilter) ? '' : activeQuickFilter,
+          )
+        )
       }),
-    [events, selectedGenre, selectedSource, dateFrom, dateTo],
+    [
+      events,
+      selectedGenre,
+      selectedSource,
+      dateFrom,
+      dateTo,
+      activeQuickFilter,
+    ],
   )
 
   const startIndex = (currentPage - 1) * EVENTS_PER_PAGE
@@ -119,11 +229,15 @@ function HomePage() {
     setSelectedSource(DEFAULT_SOURCE_FILTER)
     setDateFrom('')
     setDateTo('')
+    setActiveQuickFilter(DEFAULT_QUICK_FILTER)
     setCurrentPage(1)
   }
 
   function handleGenreChange(value) {
     setSelectedGenre(value)
+    if (activeQuickFilter && !DATE_QUICK_FILTERS.has(activeQuickFilter)) {
+      setActiveQuickFilter(DEFAULT_QUICK_FILTER)
+    }
     setCurrentPage(1)
   }
 
@@ -134,11 +248,42 @@ function HomePage() {
 
   function handleDateFromChange(value) {
     setDateFrom(value)
+    if (DATE_QUICK_FILTERS.has(activeQuickFilter)) {
+      setActiveQuickFilter(DEFAULT_QUICK_FILTER)
+    }
     setCurrentPage(1)
   }
 
   function handleDateToChange(value) {
     setDateTo(value)
+    if (DATE_QUICK_FILTERS.has(activeQuickFilter)) {
+      setActiveQuickFilter(DEFAULT_QUICK_FILTER)
+    }
+    setCurrentPage(1)
+  }
+
+  function handleQuickFilter(filter) {
+    if (activeQuickFilter === filter) {
+      if (DATE_QUICK_FILTERS.has(filter)) {
+        setDateFrom('')
+        setDateTo('')
+      }
+      setActiveQuickFilter(DEFAULT_QUICK_FILTER)
+    } else {
+      if (DATE_QUICK_FILTERS.has(activeQuickFilter)) {
+        setDateFrom('')
+        setDateTo('')
+      }
+
+      if (DATE_QUICK_FILTERS.has(filter)) {
+        const range = getQuickDateRange(filter)
+        setDateFrom(range.dateFrom)
+        setDateTo(range.dateTo)
+      }
+
+      setActiveQuickFilter(filter)
+    }
+
     setCurrentPage(1)
   }
 
@@ -192,8 +337,8 @@ function HomePage() {
       <main className="home-page" id="main-content">
         <section className="home-main-inner explore-section" id="explore">
           <SiteHeader
-            title="Discover live events across cities and scenes."
-            subtitle="Search by city or artist and explore events on an interactive map."
+            title="Find concerts, clubs and live music events around you."
+            subtitle="Search by city or artist, explore the map, and discover where to go next."
           />
           <div className="hero-search">
             <SearchBar onSearch={handleSearch} loading={loading} />
@@ -214,6 +359,7 @@ function HomePage() {
                 selectedSource={selectedSource}
                 dateFrom={dateFrom}
                 dateTo={dateTo}
+                activeQuickFilter={activeQuickFilter}
                 searchLabel={lastSearch.value}
                 eventsCount={filteredEvents.length}
                 loading={loading}
@@ -221,6 +367,7 @@ function HomePage() {
                 onSourceChange={handleSourceChange}
                 onDateFromChange={handleDateFromChange}
                 onDateToChange={handleDateToChange}
+                onQuickFilter={handleQuickFilter}
                 onReset={resetFilters}
               />
             ) : null}

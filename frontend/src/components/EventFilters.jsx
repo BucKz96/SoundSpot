@@ -25,6 +25,16 @@ const SOURCE_OPTIONS = [
   { value: 'openagenda', label: 'OpenAgenda' },
 ]
 
+const QUICK_FILTERS = [
+  { value: 'tonight', label: 'Tonight' },
+  { value: 'week', label: 'This week' },
+  { value: 'month', label: 'This month' },
+  { value: 'concerts', label: 'Concerts' },
+  { value: 'clubs', label: 'Clubs' },
+  { value: 'festivals', label: 'Festivals' },
+  { value: 'electronic', label: 'Electronic' },
+]
+
 function FilterSelect({ value, options, ariaLabel, onChange, className = '' }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -101,6 +111,7 @@ function EventFilters({
   selectedSource,
   dateFrom,
   dateTo,
+  activeQuickFilter,
   searchLabel,
   eventsCount,
   loading,
@@ -108,18 +119,45 @@ function EventFilters({
   onSourceChange,
   onDateFromChange,
   onDateToChange,
+  onQuickFilter,
   onReset,
 }) {
   const hasActiveFilters =
-    selectedGenre !== 'all' || selectedSource !== 'all' || dateFrom || dateTo
+    selectedGenre !== 'all' ||
+    selectedSource !== 'all' ||
+    dateFrom ||
+    dateTo ||
+    activeQuickFilter
   const eventsLabel = eventsCount === 1 ? 'event' : 'events'
-  const countLabel = loading ? 'Searching events...' : `${eventsCount} ${eventsLabel} found`
+  const countLabel = loading
+    ? 'Searching events...'
+    : `${eventsCount} ${eventsLabel} found`
 
   return (
     <section className="event-filters" aria-label="Filter events">
       <div className="event-filters__summary" aria-live="polite">
         <h2 className="event-filters__title">{searchLabel || 'Global search'}</h2>
         <p className="event-filters__count">{countLabel}</p>
+      </div>
+
+      <div className="event-filters__quick-list" aria-label="Quick filters">
+        {QUICK_FILTERS.map((filter) => {
+          const isActive = activeQuickFilter === filter.value
+
+          return (
+            <button
+              key={filter.value}
+              className={`event-filters__quick-filter ${
+                isActive ? 'is-active' : ''
+              }`.trim()}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => onQuickFilter(filter.value)}
+            >
+              {filter.label}
+            </button>
+          )
+        })}
       </div>
 
       <div className="event-filters__bar">

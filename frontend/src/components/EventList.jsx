@@ -35,7 +35,7 @@ function EventList({
       <section className={sectionClassName} aria-label="Event list">
         <div className="event-list-section__header">
           <div>
-            <h2 className="event-list-section__title">Found events</h2>
+            <h2 className="event-list-section__title">Events found</h2>
             <p className="event-list-section__meta">
               {totalEventsCount} {resultLabel} {locationLabel}
             </p>
@@ -59,7 +59,7 @@ function EventList({
     <section className={sectionClassName} aria-label="Event list">
       <div className="event-list-section__header">
         <div>
-          <h2 className="event-list-section__title">Found events</h2>
+          <h2 className="event-list-section__title">Events found</h2>
           <p className="event-list-section__meta">
             {totalEventsCount} {resultLabel} {locationLabel}
           </p>
