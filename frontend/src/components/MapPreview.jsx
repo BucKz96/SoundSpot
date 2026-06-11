@@ -11,7 +11,7 @@ import {
 import { groupEventsByVenue } from '../utils/eventGrouping'
 import ProviderBadge from './ProviderBadge'
 
-const DEFAULT_CENTER = [20, 0]
+const DEFAULT_CENTER = [20, 10]
 const DEFAULT_ZOOM = 2
 const MIN_MAP_ZOOM = 2
 const DISABLE_CLUSTERING_AT_ZOOM = 15
@@ -62,6 +62,41 @@ function formatEventTime(event) {
 
   if (date && time) return `${date} | ${time}`
   return date || time || 'Date TBA'
+}
+
+function getEventImage(event) {
+  return (
+    event.image_url ||
+    event.image ||
+    event.imageUrl ||
+    event.thumbnail_url ||
+    event.thumbnail ||
+    ''
+  )
+}
+
+function EventThumbnail({ event }) {
+  const imageUrl = getEventImage(event)
+  const [failedImageUrl, setFailedImageUrl] = useState('')
+  const showImage = Boolean(imageUrl) && failedImageUrl !== imageUrl
+
+  return (
+    <span
+      className={`venue-group-panel__thumbnail ${
+        showImage ? 'has-image' : ''
+      }`.trim()}
+      aria-hidden="true"
+    >
+      {showImage ? (
+        <img
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          onError={() => setFailedImageUrl(imageUrl)}
+        />
+      ) : null}
+    </span>
+  )
 }
 
 function getEventKey(event) {
@@ -282,34 +317,79 @@ function MapAutoFit({ groups, hasSearched }) {
   const map = useMap()
 
   useEffect(() => {
-    if (!hasSearched) {
-      map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+    const frameId = window.requestAnimationFrame(() => {
+      map.invalidateSize({ pan: false })
+
+      if (!hasSearched) {
+        map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+          animate: true,
+          duration: 1.1,
+        })
+        return
+      }
+
+      if (groups.length === 0) return
+
+      if (groups.length === 1) {
+        map.flyTo([groups[0].latitude, groups[0].longitude], 12, {
+          animate: true,
+          duration: 1.2,
+        })
+        return
+      }
+
+      const bounds = L.latLngBounds(
+        groups.map((group) => [group.latitude, group.longitude]),
+      )
+      map.flyToBounds(bounds, {
         animate: true,
-        duration: 1.1,
+        duration: 1.35,
+        padding: [36, 36],
+        maxZoom: 12,
       })
-      return
-    }
-
-    if (groups.length === 0) return
-
-    if (groups.length === 1) {
-      map.flyTo([groups[0].latitude, groups[0].longitude], 12, {
-        animate: true,
-        duration: 1.2,
-      })
-      return
-    }
-
-    const bounds = L.latLngBounds(
-      groups.map((group) => [group.latitude, group.longitude]),
-    )
-    map.flyToBounds(bounds, {
-      animate: true,
-      duration: 1.35,
-      padding: [36, 36],
-      maxZoom: 12,
     })
+
+    return () => window.cancelAnimationFrame(frameId)
   }, [groups, hasSearched, map])
+
+  return null
+}
+
+function MapSizeController({ hasSidebar, hasSearched }) {
+  const map = useMap()
+
+  useEffect(() => {
+    const container = map.getContainer()
+    const layout = container.closest('.map-layout')
+    const resizeTarget = container.parentElement
+    let frameId = 0
+
+    const updateMapSize = () => {
+      window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false })
+      })
+    }
+
+    updateMapSize()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateMapSize)
+      return () => {
+        window.cancelAnimationFrame(frameId)
+        window.removeEventListener('resize', updateMapSize)
+      }
+    }
+
+    const observer = new ResizeObserver(updateMapSize)
+    if (layout) observer.observe(layout)
+    if (resizeTarget) observer.observe(resizeTarget)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      observer.disconnect()
+    }
+  }, [hasSidebar, hasSearched, map])
 
   return null
 }
@@ -336,6 +416,7 @@ function MapEventsPanel({
   selectedEventKey,
   onEventFocus,
   onClear,
+  closable = true,
 }) {
   if (events.length === 0) return null
 
@@ -349,14 +430,16 @@ function MapEventsPanel({
           <h3>{title}</h3>
           <p>{subtitle}</p>
         </div>
-        <button
-          type="button"
-          className="venue-group-panel__close"
-          onClick={onClear}
-          aria-label="Clear map selection"
-        >
-          x
-        </button>
+        {closable ? (
+          <button
+            type="button"
+            className="venue-group-panel__close"
+            onClick={onClear}
+            aria-label="Clear map selection"
+          >
+            x
+          </button>
+        ) : null}
       </header>
       <ul className="venue-group-panel__events">
         {events.map((event) => {
@@ -366,6 +449,7 @@ function MapEventsPanel({
               key={event.id || `${event.name}-${event.date}-${event.source}`}
               className={getEventKey(event) === selectedEventKey ? 'is-selected' : ''}
             >
+              <EventThumbnail event={event} />
               <button
                 type="button"
                 className="venue-group-panel__event-focus"
@@ -396,6 +480,7 @@ function MapPreview({
   events,
   loading,
   hasSearched = false,
+  hasActiveFilters = false,
   searchValue = '',
   discoveryError = '',
 }) {
@@ -426,6 +511,10 @@ function MapPreview({
   const selectedEvents = useMemo(
     () => selectedGroups.flatMap((group) => group.events),
     [selectedGroups],
+  )
+  const discoveryPanelEvents = useMemo(
+    () => geolocatedEvents.slice(0, 5),
+    [geolocatedEvents],
   )
   const focusedEvent = useMemo(
     () =>
@@ -460,12 +549,16 @@ function MapPreview({
 
     return () => window.clearTimeout(timeoutId)
   }, [focusedEvent, focusedEventKey, mapSelection, selectedGroups])
-  const panelTitle =
-    mapSelection?.type === 'cluster'
+  const panelEvents =
+    selectedEvents.length > 0 ? selectedEvents : discoveryPanelEvents
+  const panelTitle = !mapSelection
+    ? 'Events in this area'
+    : mapSelection.type === 'cluster'
       ? 'Events in this area'
       : selectedGroups[0]?.venue || 'Events at this venue'
-  const panelSubtitle =
-    mapSelection?.type === 'cluster'
+  const panelSubtitle = !mapSelection
+    ? `${venueGroups.length} venue${venueGroups.length === 1 ? '' : 's'}`
+    : mapSelection.type === 'cluster'
       ? `${selectedGroups.length} venues`
       : `${selectedGroups[0]?.city || 'City unavailable'} | ${
           selectedEvents.length
@@ -492,97 +585,109 @@ function MapPreview({
 
   const showGlobalDiscovery = !hasSearched
   const showGlobalFallback =
-    showGlobalDiscovery && !loading && venueGroups.length === 0
+    showGlobalDiscovery &&
+    !hasActiveFilters &&
+    !loading &&
+    venueGroups.length === 0
   const showDiscoveryLoadingHint =
     showGlobalDiscovery && loading && venueGroups.length === 0
   const showDiscoveryErrorHint =
     showGlobalFallback && !loading && Boolean(discoveryError)
   const showEmptySearchHint =
     hasSearched && !loading && events.length === 0 && Boolean(searchValue)
+  const showEmptyDiscoveryFilterHint =
+    showGlobalDiscovery &&
+    hasActiveFilters &&
+    !loading &&
+    events.length === 0
+  const hasSidebar = panelEvents.length > 0
 
   return (
     <section className="map-preview" aria-label="Live event map">
-      {showGlobalDiscovery ? (
-        <div className="map-preview__header">
-          <h2 className="map-preview__title">Global discovery</h2>
-          <p className="map-preview__subtitle">
-            Search a city or artist to explore live events.
-          </p>
+      <div className={`map-layout ${hasSidebar ? 'has-sidebar' : ''}`}>
+        <div className="map-box">
+          <MapContainer
+            center={DEFAULT_CENTER}
+            zoom={DEFAULT_ZOOM}
+            minZoom={MIN_MAP_ZOOM}
+            maxBounds={WORLD_BOUNDS}
+            maxBoundsViscosity={1}
+            scrollWheelZoom
+            dragging
+            worldCopyJump={false}
+            className="event-map"
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              className="event-map__base-tiles"
+              subdomains="abcd"
+              noWrap
+              url={CARTO_DARK_BASE_TILES_URL}
+            />
+            <TileLayer
+              className="event-map__label-tiles"
+              maxZoom={6}
+              opacity={0.34}
+              subdomains="abcd"
+              noWrap
+              url={CARTO_DARK_LABELS_TILES_URL}
+            />
+            <MapSizeController
+              hasSidebar={hasSidebar}
+              hasSearched={hasSearched}
+            />
+            <MapAutoFit groups={venueGroups} hasSearched={hasSearched} />
+            <MapFocusController event={focusedEvent} />
+            {showGlobalFallback ? <GlobalGlowMarkers /> : null}
+            <VenueMapLayer
+              groups={venueGroups}
+              isDiscovery={showGlobalDiscovery}
+              onClusterSelect={handleClusterSelect}
+              onVenueSelect={handleVenueSelect}
+            />
+          </MapContainer>
+          <div className="map-box__overlay" aria-hidden="true" />
+          {loading ? (
+            <div
+              className="map-loading-bar"
+              role="status"
+              aria-label="Loading events"
+              aria-live="polite"
+            />
+          ) : null}
+          {showDiscoveryLoadingHint ? (
+            <div
+              className="map-box__empty-hint map-box__empty-hint--loading"
+              aria-live="polite"
+            >
+              <p>Loading live events...</p>
+            </div>
+          ) : null}
+          {showEmptySearchHint ? (
+            <div className="map-box__empty-hint" aria-live="polite">
+              <p>No events found for {searchValue}</p>
+            </div>
+          ) : null}
+          {showEmptyDiscoveryFilterHint ? (
+            <div className="map-box__empty-hint" aria-live="polite">
+              <p>No discovery events match these filters</p>
+            </div>
+          ) : null}
+          {showDiscoveryErrorHint ? (
+            <div className="map-box__empty-hint" aria-live="polite">
+              <p>Discovery map unavailable. Search to explore events.</p>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-
-      <div className="map-box">
-        <MapContainer
-          center={DEFAULT_CENTER}
-          zoom={DEFAULT_ZOOM}
-          minZoom={MIN_MAP_ZOOM}
-          maxBounds={WORLD_BOUNDS}
-          maxBoundsViscosity={1}
-          scrollWheelZoom
-          dragging
-          worldCopyJump={false}
-          className="event-map"
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            className="event-map__base-tiles"
-            subdomains="abcd"
-            noWrap
-            url={CARTO_DARK_BASE_TILES_URL}
-          />
-          <TileLayer
-            className="event-map__label-tiles"
-            maxZoom={6}
-            opacity={0.34}
-            subdomains="abcd"
-            noWrap
-            url={CARTO_DARK_LABELS_TILES_URL}
-          />
-          <MapAutoFit groups={venueGroups} hasSearched={hasSearched} />
-          <MapFocusController event={focusedEvent} />
-          {showGlobalFallback ? <GlobalGlowMarkers /> : null}
-          <VenueMapLayer
-            groups={venueGroups}
-            isDiscovery={showGlobalDiscovery}
-            onClusterSelect={handleClusterSelect}
-            onVenueSelect={handleVenueSelect}
-          />
-        </MapContainer>
-        <div className="map-box__overlay" aria-hidden="true" />
         <MapEventsPanel
           title={panelTitle}
           subtitle={panelSubtitle}
-          events={selectedEvents}
+          events={panelEvents}
           selectedEventKey={focusedEventKey}
           onEventFocus={handleEventFocus}
           onClear={handleClearSelection}
+          closable={Boolean(mapSelection)}
         />
-        {loading ? (
-          <div
-            className="map-loading-bar"
-            role="status"
-            aria-label="Loading events"
-            aria-live="polite"
-          />
-        ) : null}
-        {showDiscoveryLoadingHint ? (
-          <div
-            className="map-box__empty-hint map-box__empty-hint--loading"
-            aria-live="polite"
-          >
-            <p>Loading live events...</p>
-          </div>
-        ) : null}
-        {showEmptySearchHint ? (
-          <div className="map-box__empty-hint" aria-live="polite">
-            <p>No events found for {searchValue}</p>
-          </div>
-        ) : null}
-        {showDiscoveryErrorHint ? (
-          <div className="map-box__empty-hint" aria-live="polite">
-            <p>Discovery map unavailable. Search to explore events.</p>
-          </div>
-        ) : null}
       </div>
     </section>
   )
