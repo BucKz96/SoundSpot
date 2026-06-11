@@ -159,10 +159,18 @@ function HomePage() {
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [activeQuickFilter, setActiveQuickFilter] = useState(DEFAULT_QUICK_FILTER)
+  const activeEvents = hasSearched ? events : discoveryEvents
+  const hasActiveFilters = Boolean(
+    selectedGenre !== DEFAULT_GENRE_FILTER ||
+      selectedSource !== DEFAULT_SOURCE_FILTER ||
+      dateFrom ||
+      dateTo ||
+      activeQuickFilter,
+  )
 
   const filteredEvents = useMemo(
     () =>
-      events.filter((event) => {
+      activeEvents.filter((event) => {
         const eventGenres = Array.isArray(event.genres) ? event.genres : []
         const matchesGenre =
           selectedGenre === DEFAULT_GENRE_FILTER ||
@@ -182,7 +190,7 @@ function HomePage() {
         )
       }),
     [
-      events,
+      activeEvents,
       selectedGenre,
       selectedSource,
       dateFrom,
@@ -195,8 +203,15 @@ function HomePage() {
   const endIndex = startIndex + EVENTS_PER_PAGE
   const paginatedEvents = filteredEvents.slice(startIndex, endIndex)
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PER_PAGE))
-  const mapEvents = hasSearched ? filteredEvents : discoveryEvents
   const mapLoading = hasSearched ? loading : discoveryLoading
+  const mapTitle = hasSearched ? lastSearch.value : 'Explore the world'
+  const mapMicrocopy = hasSearched
+    ? loading
+      ? 'Searching events...'
+      : `${filteredEvents.length} ${
+          filteredEvents.length === 1 ? 'event' : 'events'
+        } found`
+    : 'Discover live music events from multiple sources'
   const featuredEvents = useMemo(
     () =>
       discoveryEvents
@@ -205,7 +220,7 @@ function HomePage() {
     [discoveryEvents],
   )
   const emptyEventsMessage =
-    events.length > 0 && filteredEvents.length === 0
+    activeEvents.length > 0 && filteredEvents.length === 0
       ? 'No events match these filters. Try another genre, date range, or source.'
       : lastSearch.value
         ? `No events found for ${lastSearch.value}. Try another genre, date range, or source.`
@@ -390,46 +405,50 @@ function HomePage() {
             <div className="content-panel content-panel--map">
               <div className="map-showcase__toolbar">
                 <div className="map-showcase__title">
-                  <h2 id="map-showcase-title">Explore the world</h2>
-                  <p className="map-showcase__microcopy">
-                    Live events from multiple sources
+                  <h2 id="map-showcase-title">{mapTitle}</h2>
+                  <p className="map-showcase__microcopy" aria-live="polite">
+                    {mapMicrocopy}
                   </p>
                 </div>
-                <div className="map-showcase__view-toggle">
-                  <span className="is-active">Map</span>
-                  <span title="List view is a product preview">List</span>
+                <div
+                  className="map-showcase__view-toggle"
+                  role="group"
+                  aria-label="Event view"
+                >
+                  <button
+                    className="is-active"
+                    type="button"
+                    aria-pressed="true"
+                  >
+                    Map
+                  </button>
+                  <button
+                    type="button"
+                    disabled
+                    title="List view is coming later"
+                  >
+                    List
+                  </button>
                 </div>
               </div>
-              {!hasSearched ? (
-                <div className="map-showcase__filter-preview">
-                  <span>All events</span>
-                  <span>All dates</span>
-                  <span>All genres</span>
-                  <span>More filters</span>
-                </div>
-              ) : null}
-              {hasSearched && !loading && !error ? (
-                <EventFilters
-                  selectedGenre={selectedGenre}
-                  selectedSource={selectedSource}
-                  dateFrom={dateFrom}
-                  dateTo={dateTo}
-                  activeQuickFilter={activeQuickFilter}
-                  searchLabel={lastSearch.value}
-                  eventsCount={filteredEvents.length}
-                  loading={loading}
-                  onGenreChange={handleGenreChange}
-                  onSourceChange={handleSourceChange}
-                  onDateFromChange={handleDateFromChange}
-                  onDateToChange={handleDateToChange}
-                  onQuickFilter={handleQuickFilter}
-                  onReset={resetFilters}
-                />
-              ) : null}
+              <EventFilters
+                selectedGenre={selectedGenre}
+                selectedSource={selectedSource}
+                dateFrom={dateFrom}
+                dateTo={dateTo}
+                activeQuickFilter={activeQuickFilter}
+                onGenreChange={handleGenreChange}
+                onSourceChange={handleSourceChange}
+                onDateFromChange={handleDateFromChange}
+                onDateToChange={handleDateToChange}
+                onQuickFilter={handleQuickFilter}
+                onReset={resetFilters}
+              />
               <MapPreview
-                events={mapEvents}
+                events={filteredEvents}
                 loading={mapLoading}
                 hasSearched={hasSearched}
+                hasActiveFilters={hasActiveFilters}
                 searchValue={lastSearch.value}
                 discoveryError={discoveryError}
               />

@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import logo from '../assets/soundspot-logo.png'
 import { howItWorksSteps } from '../data/landingData'
 import {
@@ -341,6 +342,16 @@ export function FinalCTA() {
 }
 
 export function AppFooter() {
+  const [newsletterEmail, setNewsletterEmail] = useState('')
+  const [newsletterMessage, setNewsletterMessage] = useState('')
+
+  function handleNewsletterSubmit(event) {
+    event.preventDefault()
+    setNewsletterMessage(
+      'Newsletter signup is coming soon. No email was submitted.',
+    )
+  }
+
   return (
     <footer className="product-footer">
       <div className="product-footer__brand">
@@ -380,21 +391,33 @@ export function AppFooter() {
           <span>Twitter / X</span>
           <span>Discord</span>
         </div>
-        <div className="product-footer__newsletter">
+        <form
+          className="product-footer__newsletter"
+          onSubmit={handleNewsletterSubmit}
+        >
           <h2>Stay in the loop</h2>
           <p>Get updates on new product features and events.</p>
           <div>
             <input
               type="email"
               placeholder="Your email address"
-              aria-label="Newsletter email preview"
-              disabled
+              aria-label="Newsletter email"
+              value={newsletterEmail}
+              onChange={(event) => {
+                setNewsletterEmail(event.target.value)
+                setNewsletterMessage('')
+              }}
             />
-            <button type="button" disabled title="Newsletter is coming later">
+            <button type="submit" title="Newsletter is coming later">
               &gt;
             </button>
           </div>
-        </div>
+          {newsletterMessage ? (
+            <p className="product-footer__newsletter-status" role="status">
+              {newsletterMessage}
+            </p>
+          ) : null}
+        </form>
       </div>
     </footer>
   )

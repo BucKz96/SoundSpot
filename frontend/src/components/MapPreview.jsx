@@ -68,9 +68,34 @@ function getEventImage(event) {
   return (
     event.image_url ||
     event.image ||
+    event.imageUrl ||
     event.thumbnail_url ||
     event.thumbnail ||
     ''
+  )
+}
+
+function EventThumbnail({ event }) {
+  const imageUrl = getEventImage(event)
+  const [failedImageUrl, setFailedImageUrl] = useState('')
+  const showImage = Boolean(imageUrl) && failedImageUrl !== imageUrl
+
+  return (
+    <span
+      className={`venue-group-panel__thumbnail ${
+        showImage ? 'has-image' : ''
+      }`.trim()}
+      aria-hidden="true"
+    >
+      {showImage ? (
+        <img
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          onError={() => setFailedImageUrl(imageUrl)}
+        />
+      ) : null}
+    </span>
   )
 }
 
@@ -292,34 +317,79 @@ function MapAutoFit({ groups, hasSearched }) {
   const map = useMap()
 
   useEffect(() => {
-    if (!hasSearched) {
-      map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+    const frameId = window.requestAnimationFrame(() => {
+      map.invalidateSize({ pan: false })
+
+      if (!hasSearched) {
+        map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+          animate: true,
+          duration: 1.1,
+        })
+        return
+      }
+
+      if (groups.length === 0) return
+
+      if (groups.length === 1) {
+        map.flyTo([groups[0].latitude, groups[0].longitude], 12, {
+          animate: true,
+          duration: 1.2,
+        })
+        return
+      }
+
+      const bounds = L.latLngBounds(
+        groups.map((group) => [group.latitude, group.longitude]),
+      )
+      map.flyToBounds(bounds, {
         animate: true,
-        duration: 1.1,
+        duration: 1.35,
+        padding: [36, 36],
+        maxZoom: 12,
       })
-      return
-    }
-
-    if (groups.length === 0) return
-
-    if (groups.length === 1) {
-      map.flyTo([groups[0].latitude, groups[0].longitude], 12, {
-        animate: true,
-        duration: 1.2,
-      })
-      return
-    }
-
-    const bounds = L.latLngBounds(
-      groups.map((group) => [group.latitude, group.longitude]),
-    )
-    map.flyToBounds(bounds, {
-      animate: true,
-      duration: 1.35,
-      padding: [36, 36],
-      maxZoom: 12,
     })
+
+    return () => window.cancelAnimationFrame(frameId)
   }, [groups, hasSearched, map])
+
+  return null
+}
+
+function MapSizeController({ hasSidebar, hasSearched }) {
+  const map = useMap()
+
+  useEffect(() => {
+    const container = map.getContainer()
+    const layout = container.closest('.map-layout')
+    const resizeTarget = container.parentElement
+    let frameId = 0
+
+    const updateMapSize = () => {
+      window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false })
+      })
+    }
+
+    updateMapSize()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateMapSize)
+      return () => {
+        window.cancelAnimationFrame(frameId)
+        window.removeEventListener('resize', updateMapSize)
+      }
+    }
+
+    const observer = new ResizeObserver(updateMapSize)
+    if (layout) observer.observe(layout)
+    if (resizeTarget) observer.observe(resizeTarget)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      observer.disconnect()
+    }
+  }, [hasSidebar, hasSearched, map])
 
   return null
 }
@@ -379,17 +449,7 @@ function MapEventsPanel({
               key={event.id || `${event.name}-${event.date}-${event.source}`}
               className={getEventKey(event) === selectedEventKey ? 'is-selected' : ''}
             >
-              <span
-                className={`venue-group-panel__thumbnail ${
-                  getEventImage(event) ? 'has-image' : ''
-                }`}
-                style={
-                  getEventImage(event)
-                    ? { backgroundImage: `url("${getEventImage(event)}")` }
-                    : undefined
-                }
-                aria-hidden="true"
-              />
+              <EventThumbnail event={event} />
               <button
                 type="button"
                 className="venue-group-panel__event-focus"
@@ -420,6 +480,7 @@ function MapPreview({
   events,
   loading,
   hasSearched = false,
+  hasActiveFilters = false,
   searchValue = '',
   discoveryError = '',
 }) {
@@ -491,12 +552,12 @@ function MapPreview({
   const panelEvents =
     selectedEvents.length > 0 ? selectedEvents : discoveryPanelEvents
   const panelTitle = !mapSelection
-    ? 'Discovery events'
+    ? 'Events in this area'
     : mapSelection.type === 'cluster'
       ? 'Events in this area'
       : selectedGroups[0]?.venue || 'Events at this venue'
   const panelSubtitle = !mapSelection
-    ? 'Select a cluster or venue to explore this area'
+    ? `${venueGroups.length} venue${venueGroups.length === 1 ? '' : 's'}`
     : mapSelection.type === 'cluster'
       ? `${selectedGroups.length} venues`
       : `${selectedGroups[0]?.city || 'City unavailable'} | ${
@@ -524,17 +585,26 @@ function MapPreview({
 
   const showGlobalDiscovery = !hasSearched
   const showGlobalFallback =
-    showGlobalDiscovery && !loading && venueGroups.length === 0
+    showGlobalDiscovery &&
+    !hasActiveFilters &&
+    !loading &&
+    venueGroups.length === 0
   const showDiscoveryLoadingHint =
     showGlobalDiscovery && loading && venueGroups.length === 0
   const showDiscoveryErrorHint =
     showGlobalFallback && !loading && Boolean(discoveryError)
   const showEmptySearchHint =
     hasSearched && !loading && events.length === 0 && Boolean(searchValue)
+  const showEmptyDiscoveryFilterHint =
+    showGlobalDiscovery &&
+    hasActiveFilters &&
+    !loading &&
+    events.length === 0
+  const hasSidebar = panelEvents.length > 0
 
   return (
     <section className="map-preview" aria-label="Live event map">
-      <div className={`map-layout ${panelEvents.length > 0 ? 'has-sidebar' : ''}`}>
+      <div className={`map-layout ${hasSidebar ? 'has-sidebar' : ''}`}>
         <div className="map-box">
           <MapContainer
             center={DEFAULT_CENTER}
@@ -561,6 +631,10 @@ function MapPreview({
               subdomains="abcd"
               noWrap
               url={CARTO_DARK_LABELS_TILES_URL}
+            />
+            <MapSizeController
+              hasSidebar={hasSidebar}
+              hasSearched={hasSearched}
             />
             <MapAutoFit groups={venueGroups} hasSearched={hasSearched} />
             <MapFocusController event={focusedEvent} />
@@ -592,6 +666,11 @@ function MapPreview({
           {showEmptySearchHint ? (
             <div className="map-box__empty-hint" aria-live="polite">
               <p>No events found for {searchValue}</p>
+            </div>
+          ) : null}
+          {showEmptyDiscoveryFilterHint ? (
+            <div className="map-box__empty-hint" aria-live="polite">
+              <p>No discovery events match these filters</p>
             </div>
           ) : null}
           {showDiscoveryErrorHint ? (
