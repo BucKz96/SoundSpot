@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     database_url: str = (
         "postgresql+psycopg://soundspot:soundspot@localhost:5432/soundspot"
     )
+    jwt_secret_key: str = ""
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 10080
     ticketmaster_api_key: str = ""
     openagenda_api_key: str = ""
     openagenda_agenda_uids: str = ""
@@ -59,6 +62,10 @@ class Settings(BaseSettings):
             origins.append("http://127.0.0.1:5173")
 
         return list(dict.fromkeys(origins))
+
+    @property
+    def auth_cookie_secure(self) -> bool:
+        return self.app_env.strip().casefold() == "production"
 
     @property
     def discovery_seed_cities(self) -> list[str]:
