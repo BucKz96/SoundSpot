@@ -25,6 +25,63 @@ const SOURCE_OPTIONS = [
   { value: 'openagenda', label: 'OpenAgenda' },
 ]
 
+const QUICK_FILTERS = [
+  { value: 'tonight', label: 'Tonight', icon: 'moon' },
+  { value: 'week', label: 'This week', icon: 'calendar' },
+  { value: 'month', label: 'This month', icon: 'calendar-range' },
+  { value: 'concerts', label: 'Concerts', icon: 'music' },
+  { value: 'clubs', label: 'Clubs', icon: 'disc' },
+  { value: 'festivals', label: 'Festivals', icon: 'ticket' },
+]
+
+function QuickFilterIcon({ name }) {
+  const paths = {
+    moon: <path d="M9.8 2.4a4.8 4.8 0 1 0 3.8 7.6A5.4 5.4 0 0 1 9.8 2.4Z" />,
+    calendar: (
+      <>
+        <path d="M3 5.2h10M5.2 2.5v2.2m5.6-2.2v2.2M4.2 3.6h7.6A1.2 1.2 0 0 1 13 4.8v7A1.2 1.2 0 0 1 11.8 13H4.2A1.2 1.2 0 0 1 3 11.8v-7a1.2 1.2 0 0 1 1.2-1.2Z" />
+        <path d="M5.3 7.5h2m1.4 0h2M5.3 9.8h2" />
+      </>
+    ),
+    'calendar-range': (
+      <>
+        <path d="M3 5.2h10M5.2 2.5v2.2m5.6-2.2v2.2M4.2 3.6h7.6A1.2 1.2 0 0 1 13 4.8v7A1.2 1.2 0 0 1 11.8 13H4.2A1.2 1.2 0 0 1 3 11.8v-7a1.2 1.2 0 0 1 1.2-1.2Z" />
+        <path d="M5.2 8.3h5.6m-5.6 2.2h3.2" />
+      </>
+    ),
+    music: (
+      <>
+        <path d="M6.2 11.5V4.3l5.4-1.1v7" />
+        <circle cx="4.8" cy="11.5" r="1.4" />
+        <circle cx="10.2" cy="10.4" r="1.4" />
+      </>
+    ),
+    disc: (
+      <>
+        <circle cx="8" cy="8" r="5.2" />
+        <circle cx="8" cy="8" r="1.4" />
+        <path d="M11.7 4.3 9.1 6.9" />
+      </>
+    ),
+    ticket: (
+      <>
+        <path d="M3 5.1a1.5 1.5 0 0 0 0 3v2.3h10V8.1a1.5 1.5 0 0 0 0-3V3.6H3v1.5Z" />
+        <path d="M8 5.5v3" />
+      </>
+    ),
+  }
+
+  return (
+    <svg
+      className="event-filters__quick-icon"
+      viewBox="0 0 16 16"
+      aria-hidden="true"
+    >
+      {paths[name]}
+    </svg>
+  )
+}
+
 function FilterSelect({ value, options, ariaLabel, onChange, className = '' }) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
@@ -101,25 +158,41 @@ function EventFilters({
   selectedSource,
   dateFrom,
   dateTo,
-  searchLabel,
-  eventsCount,
-  loading,
+  activeQuickFilter,
   onGenreChange,
   onSourceChange,
   onDateFromChange,
   onDateToChange,
+  onQuickFilter,
   onReset,
 }) {
   const hasActiveFilters =
-    selectedGenre !== 'all' || selectedSource !== 'all' || dateFrom || dateTo
-  const eventsLabel = eventsCount === 1 ? 'event' : 'events'
-  const countLabel = loading ? 'Searching events...' : `${eventsCount} ${eventsLabel} found`
-
+    selectedGenre !== 'all' ||
+    selectedSource !== 'all' ||
+    dateFrom ||
+    dateTo ||
+    activeQuickFilter
   return (
     <section className="event-filters" aria-label="Filter events">
-      <div className="event-filters__summary" aria-live="polite">
-        <h2 className="event-filters__title">{searchLabel || 'Global search'}</h2>
-        <p className="event-filters__count">{countLabel}</p>
+      <div className="event-filters__quick-list" aria-label="Quick filters">
+        {QUICK_FILTERS.map((filter) => {
+          const isActive = activeQuickFilter === filter.value
+
+          return (
+            <button
+              key={filter.value}
+              className={`event-filters__quick-filter ${
+                isActive ? 'is-active' : ''
+              }`.trim()}
+              type="button"
+              aria-pressed={isActive}
+              onClick={() => onQuickFilter(filter.value)}
+            >
+              <QuickFilterIcon name={filter.icon} />
+              {filter.label}
+            </button>
+          )
+        })}
       </div>
 
       <div className="event-filters__bar">

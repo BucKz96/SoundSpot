@@ -1,10 +1,30 @@
+import { useState } from 'react'
+import ArtistDetailsModal from './ArtistDetailsModal'
 import ProviderBadge from './ProviderBadge'
+
+const GENERIC_ARTIST_NAMES = new Set([
+  'artist',
+  'artists',
+  'live music',
+  'multiple artists',
+  'organizer',
+  'organizers',
+  'unknown',
+  'unknown artist',
+  'various',
+  'various artists',
+])
 
 function displayArtist(artist) {
   const raw = (artist || '').trim()
   if (!raw) return 'Unknown artist'
   if (raw.toLowerCase() === 'various artists') return 'Various artists'
   return raw
+}
+
+function hasArtistDetails(artist) {
+  const normalizedArtist = (artist || '').trim().toLocaleLowerCase()
+  return normalizedArtist.length > 1 && !GENERIC_ARTIST_NAMES.has(normalizedArtist)
 }
 
 function displayVenue(venue) {
@@ -47,8 +67,10 @@ function displayDateParts(date) {
 }
 
 function EventCard({ event }) {
+  const [showArtistDetails, setShowArtistDetails] = useState(false)
   const title = (event.name || '').trim() || 'Untitled event'
   const artist = displayArtist(event.artist)
+  const canShowArtistDetails = hasArtistDetails(event.artist)
   const venue = displayVenue(event.venue)
   const location = displayCityCountry(event.city, event.country)
   const date = displayDate(event.date)
@@ -66,6 +88,16 @@ function EventCard({ event }) {
         <div className="event-card__heading">
           <h3 className="event-card__title">{title}</h3>
           <p className="event-card__artist">{artist}</p>
+          {canShowArtistDetails ? (
+            <button
+              className="event-card__artist-action"
+              type="button"
+              onClick={() => setShowArtistDetails(true)}
+            >
+              <span aria-hidden="true" />
+              View artist
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -91,6 +123,12 @@ function EventCard({ event }) {
           unavailable={!ticketUrl}
         />
       </div>
+      {showArtistDetails ? (
+        <ArtistDetailsModal
+          artistName={event.artist.trim()}
+          onClose={() => setShowArtistDetails(false)}
+        />
+      ) : null}
     </article>
   )
 }

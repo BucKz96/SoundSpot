@@ -5,6 +5,12 @@ class Settings(BaseSettings):
     app_name: str = "SoundSpot"
     app_env: str = "development"
     frontend_url: str = "http://localhost:5173"
+    database_url: str = (
+        "postgresql+psycopg://soundspot:soundspot@localhost:5432/soundspot"
+    )
+    jwt_secret_key: str = ""
+    jwt_algorithm: str = "HS256"
+    jwt_access_token_expire_minutes: int = 10080
     ticketmaster_api_key: str = ""
     openagenda_api_key: str = ""
     openagenda_agenda_uids: str = ""
@@ -17,6 +23,8 @@ class Settings(BaseSettings):
     shotgun_api_base_url: str = "https://api.shotgun.live"
     shotgun_max_events: int = 200
     shotgun_search_months_ahead: int = 6
+    spotify_client_id: str = ""
+    spotify_client_secret: str = ""
     discovery_max_events: int = 500
     discovery_months_ahead: int = 3
     discovery_cache_ttl_seconds: int = 3600
@@ -54,6 +62,10 @@ class Settings(BaseSettings):
             origins.append("http://127.0.0.1:5173")
 
         return list(dict.fromkeys(origins))
+
+    @property
+    def auth_cookie_secure(self) -> bool:
+        return self.app_env.strip().casefold() == "production"
 
     @property
     def discovery_seed_cities(self) -> list[str]:

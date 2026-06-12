@@ -8,10 +8,13 @@ function SearchBar({ onSearch, loading }) {
   const placeholder =
     searchType === 'artist'
       ? 'Search an artist like Coldplay...'
+      : searchType === 'venue'
+        ? 'Venue search is coming soon...'
       : 'Search a city like London...'
 
   function handleSubmit(event) {
     event.preventDefault()
+    if (searchType === 'venue') return
     onSearch({ type: searchType, value: query })
   }
 
@@ -39,6 +42,14 @@ function SearchBar({ onSearch, loading }) {
           >
             Artist
           </button>
+          <button
+            className={`search-type-button ${searchType === 'venue' ? 'is-active' : ''}`}
+            type="button"
+            aria-pressed={searchType === 'venue'}
+            onClick={() => setSearchType('venue')}
+          >
+            Venue
+          </button>
         </div>
         <input
           className="search-input"
@@ -46,17 +57,27 @@ function SearchBar({ onSearch, loading }) {
           placeholder={placeholder}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
+          disabled={searchType === 'venue'}
         />
-        <button className="search-button" type="submit" disabled={loading}>
+        <button
+          className="search-button"
+          type="submit"
+          disabled={loading || searchType === 'venue'}
+        >
           <img
             className="search-button__icon"
             src={soundSpotIcon}
             alt=""
             aria-hidden="true"
           />
-          <span>Search</span>
+          <span>Search events</span>
         </button>
       </div>
+      {searchType === 'venue' ? (
+        <p className="search-panel__notice" role="status">
+          Venue search is a product preview and is not connected yet.
+        </p>
+      ) : null}
     </form>
   )
 }

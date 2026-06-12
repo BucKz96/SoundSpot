@@ -1,98 +1,45 @@
 import L from 'leaflet'
-import { useEffect, useMemo } from 'react'
-import { CircleMarker, MapContainer, Marker, Popup, TileLayer, useMap } from 'react-leaflet'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  CircleMarker,
+  MapContainer,
+  Marker,
+  TileLayer,
+  useMap,
+  useMapEvents,
+} from 'react-leaflet'
+import { groupEventsByVenue } from '../utils/eventGrouping'
 import ProviderBadge from './ProviderBadge'
 
-const DEFAULT_CENTER = [20, 0]
+const DEFAULT_CENTER = [20, 10]
 const DEFAULT_ZOOM = 2
 const MIN_MAP_ZOOM = 2
+const DISABLE_CLUSTERING_AT_ZOOM = 15
+const MAX_CLUSTER_RADIUS = 80
 const WORLD_BOUNDS = [
   [-85, -180],
   [85, 180],
 ]
-const MAX_GROUPED_POPUP_EVENTS = 6
-const DISCOVERY_JITTER_STEP = 0.035
-const CARTO_DARK_TILES_URL =
+const CARTO_DARK_BASE_TILES_URL =
   'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png'
+const CARTO_DARK_LABELS_TILES_URL =
+  'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png'
 
 const GLOBAL_GLOW_POINTS = [
-  { latitude: 48.85, longitude: 2.35, color: '#22d3ee', tone: 'cyan', scale: 1.15 },
-  { latitude: 51.5, longitude: -0.12, color: '#a78bfa', tone: 'violet', scale: 1.12 },
-  { latitude: 52.52, longitude: 13.4, color: '#22d3ee', tone: 'cyan', scale: 0.9 },
-  { latitude: 52.37, longitude: 4.9, color: '#e879f9', tone: 'magenta', scale: 0.82 },
-  { latitude: 41.39, longitude: 2.17, color: '#e879f9', tone: 'magenta', scale: 0.95 },
-  { latitude: 45.46, longitude: 9.19, color: '#67e8f9', tone: 'cyan', scale: 0.78 },
-  { latitude: 59.91, longitude: 10.75, color: '#c084fc', tone: 'violet', scale: 0.72 },
-  { latitude: 40.71, longitude: -74.01, color: '#22d3ee', tone: 'cyan', scale: 1.18 },
-  { latitude: 34.05, longitude: -118.24, color: '#e879f9', tone: 'magenta', scale: 1.08 },
-  { latitude: 41.88, longitude: -87.63, color: '#67e8f9', tone: 'cyan', scale: 0.78 },
-  { latitude: 25.76, longitude: -80.19, color: '#a78bfa', tone: 'violet', scale: 0.84 },
-  { latitude: 19.43, longitude: -99.13, color: '#a78bfa', tone: 'violet', scale: 0.92 },
-  { latitude: 45.5, longitude: -73.57, color: '#22d3ee', tone: 'cyan', scale: 0.76 },
-  { latitude: -23.55, longitude: -46.63, color: '#a78bfa', tone: 'violet', scale: 1 },
-  { latitude: -34.6, longitude: -58.38, color: '#22d3ee', tone: 'cyan', scale: 0.84 },
-  { latitude: 35.68, longitude: 139.69, color: '#22d3ee', tone: 'cyan', scale: 1.18 },
-  { latitude: 37.57, longitude: 126.98, color: '#e879f9', tone: 'magenta', scale: 0.92 },
-  { latitude: 31.23, longitude: 121.47, color: '#67e8f9', tone: 'cyan', scale: 0.86 },
-  { latitude: 22.32, longitude: 114.17, color: '#c084fc', tone: 'violet', scale: 0.74 },
-  { latitude: 1.35, longitude: 103.82, color: '#a78bfa', tone: 'violet', scale: 0.86 },
-  { latitude: 13.75, longitude: 100.5, color: '#e879f9', tone: 'magenta', scale: 0.72 },
-  { latitude: 28.61, longitude: 77.21, color: '#22d3ee', tone: 'cyan', scale: 0.78 },
-  { latitude: -33.87, longitude: 151.21, color: '#c084fc', tone: 'violet', scale: 1 },
-  { latitude: -37.81, longitude: 144.96, color: '#22d3ee', tone: 'cyan', scale: 0.72 },
-  { latitude: -1.29, longitude: 36.82, color: '#e879f9', tone: 'magenta', scale: 0.78 },
-  { latitude: 25.2, longitude: 55.27, color: '#a78bfa', tone: 'violet', scale: 0.9 },
-  { latitude: -33.92, longitude: 18.42, color: '#22d3ee', tone: 'cyan', scale: 0.82 },
+  [48.85, 2.35, '#22d3ee'],
+  [51.5, -0.12, '#a78bfa'],
+  [52.52, 13.4, '#22d3ee'],
+  [52.37, 4.9, '#e879f9'],
+  [41.39, 2.17, '#e879f9'],
+  [45.46, 9.19, '#67e8f9'],
+  [40.71, -74.01, '#22d3ee'],
+  [34.05, -118.24, '#e879f9'],
+  [19.43, -99.13, '#a78bfa'],
+  [-23.55, -46.63, '#a78bfa'],
+  [35.68, 139.69, '#22d3ee'],
+  [37.57, 126.98, '#e879f9'],
+  [-33.87, 151.21, '#c084fc'],
 ]
-
-function getSourceMarkerClass(source) {
-  const normalizedSource = (source || '').trim().toLowerCase()
-
-  if (normalizedSource === 'ticketmaster') return 'event-map-marker--ticketmaster'
-  if (normalizedSource === 'shotgun') return 'event-map-marker--shotgun'
-  if (normalizedSource === 'openagenda') return 'event-map-marker--openagenda'
-  return 'event-map-marker--default'
-}
-
-function getDominantSource(events) {
-  const counts = new Map()
-
-  events.forEach((event) => {
-    const source = (event.source || '').trim().toLowerCase()
-    if (!source) return
-    counts.set(source, (counts.get(source) || 0) + 1)
-  })
-
-  let dominantSource = ''
-  let dominantCount = 0
-
-  counts.forEach((count, source) => {
-    if (count > dominantCount) {
-      dominantCount = count
-      dominantSource = source
-    }
-  })
-
-  return dominantSource
-}
-
-function createMarkerIcon({ source, isGrouped, isApproximate, isDiscovery, count }) {
-  const sourceClass = getSourceMarkerClass(source)
-  const groupedClass = isGrouped ? 'event-map-marker--grouped' : ''
-  const approximateClass = isApproximate ? 'event-map-marker--approximate' : ''
-  const discoveryClass = isDiscovery ? 'event-map-marker--discovery' : ''
-  const size = isDiscovery ? (isGrouped ? 20 : 14) : (isGrouped ? 30 : 22)
-  const anchor = size / 2
-  const countLabel = isGrouped && count > 1 && !isDiscovery ? `<em>${count}</em>` : ''
-
-  return L.divIcon({
-    className: `event-map-marker ${sourceClass} ${groupedClass} ${approximateClass} ${discoveryClass}`.trim(),
-    html: `<span><b></b><i></i>${countLabel}</span>`,
-    iconSize: [size, size],
-    iconAnchor: [anchor, anchor],
-    popupAnchor: [0, -anchor],
-  })
-}
 
 function isValidCoordinate(latitude, longitude) {
   const lat = Number(latitude)
@@ -113,368 +60,634 @@ function formatEventTime(event) {
   const date = (event.date || '').trim()
   const time = (event.time || '').trim()
 
-  if (date && time) return `${date} · ${time}`
+  if (date && time) return `${date} | ${time}`
   return date || time || 'Date TBA'
 }
 
-function getCoordinateKey(event) {
-  return `${event.latitude.toFixed(6)},${event.longitude.toFixed(6)}`
-}
-
-function clampCoordinate(value, min, max) {
-  return Math.min(max, Math.max(min, value))
-}
-
-function getDiscoveryOffset(event, index) {
-  const seed = `${event.id || event.name || ''}-${event.date || ''}-${index}`
-  let hash = 0
-
-  for (let i = 0; i < seed.length; i += 1) {
-    hash = (hash * 31 + seed.charCodeAt(i)) % 9973
-  }
-
-  const angle = (hash % 360) * (Math.PI / 180)
-  const radius = ((hash % 4) + 1) * DISCOVERY_JITTER_STEP
-
-  return {
-    latitude: Math.sin(angle) * radius,
-    longitude: Math.cos(angle) * radius,
-  }
-}
-
-function spreadDiscoveryEvents(events) {
-  const coordinateCounts = new Map()
-
-  events.forEach((event) => {
-    const key = getCoordinateKey(event)
-    coordinateCounts.set(key, (coordinateCounts.get(key) || 0) + 1)
-  })
-
-  const coordinateIndexes = new Map()
-
-  return events.map((event) => {
-    const key = getCoordinateKey(event)
-    const count = coordinateCounts.get(key) || 0
-    if (count <= 1) return event
-
-    const index = coordinateIndexes.get(key) || 0
-    coordinateIndexes.set(key, index + 1)
-    const offset = getDiscoveryOffset(event, index)
-
-    return {
-      ...event,
-      latitude: clampCoordinate(event.latitude + offset.latitude, -90, 90),
-      longitude: clampCoordinate(event.longitude + offset.longitude, -180, 180),
-    }
-  })
-}
-
-function groupEventsByCoordinates(events) {
-  const groups = new Map()
-
-  events.forEach((event) => {
-    const key = getCoordinateKey(event)
-    const existingGroup = groups.get(key)
-
-    if (existingGroup) {
-      existingGroup.events.push(event)
-      existingGroup.isLocationApproximate =
-        existingGroup.isLocationApproximate || event.is_location_approximate
-      return
-    }
-
-    groups.set(key, {
-      key,
-      latitude: event.latitude,
-      longitude: event.longitude,
-      isLocationApproximate: Boolean(event.is_location_approximate),
-      events: [event],
-    })
-  })
-
-  return Array.from(groups.values())
-}
-
-function SingleEventPopup({ event }) {
-  const ticketUrl = (event.ticket_url || '').trim()
-  const venue = (event.venue || '').trim() || 'Venue TBA'
-
+function getEventImage(event) {
   return (
-    <article
-      className={`event-map-popup ${
-        event.is_location_approximate ? 'event-map-popup--approximate' : ''
-      }`}
-    >
-      <h3>{event.name || 'Untitled event'}</h3>
-      <p className="event-map-popup__meta">
-        {formatEventTime(event)} · {venue}
-      </p>
-      {event.is_location_approximate ? (
-        <p className="event-map-popup__hint">Approximate city location</p>
-      ) : null}
-      <ProviderBadge
-        source={event.source}
-        href={ticketUrl}
-        compact
-        unavailable={!ticketUrl}
-      />
-    </article>
+    event.image_url ||
+    event.image ||
+    event.imageUrl ||
+    event.thumbnail_url ||
+    event.thumbnail ||
+    ''
   )
 }
 
-function GroupedEventsPopup({ events, isLocationApproximate }) {
-  const visibleEvents = events.slice(0, MAX_GROUPED_POPUP_EVENTS)
-  const remainingEventsCount = events.length - visibleEvents.length
-  const eventLabel = events.length === 1 ? 'event' : 'events'
+function EventThumbnail({ event }) {
+  const imageUrl = getEventImage(event)
+  const [failedImageUrl, setFailedImageUrl] = useState('')
+  const showImage = Boolean(imageUrl) && failedImageUrl !== imageUrl
 
   return (
-    <article
-      className={`event-map-popup event-map-popup--group ${
-        isLocationApproximate ? 'event-map-popup--approximate' : ''
-      }`}
+    <span
+      className={`venue-group-panel__thumbnail ${
+        showImage ? 'has-image' : ''
+      }`.trim()}
+      aria-hidden="true"
     >
-      <h3>
-        {events.length} {eventLabel} at this location
-      </h3>
-      {isLocationApproximate ? (
-        <p className="event-map-popup__hint">Approximate city location</p>
+      {showImage ? (
+        <img
+          src={imageUrl}
+          alt=""
+          loading="lazy"
+          onError={() => setFailedImageUrl(imageUrl)}
+        />
       ) : null}
-      <ul className="event-map-popup__event-list">
-        {visibleEvents.map((event) => {
-          const ticketUrl = (event.ticket_url || '').trim()
-          const venue = (event.venue || '').trim() || 'Venue TBA'
+    </span>
+  )
+}
 
+function getEventKey(event) {
+  return (
+    event.id ||
+    `${event.name || ''}|${event.date || ''}|${event.venue || ''}|${
+      event.source || ''
+    }`
+  )
+}
+
+function getSourceMarkerClass(source) {
+  const normalizedSource = (source || '').trim().toLowerCase()
+
+  if (normalizedSource === 'ticketmaster') return 'event-map-marker--ticketmaster'
+  if (normalizedSource === 'shotgun') return 'event-map-marker--shotgun'
+  if (normalizedSource === 'openagenda') return 'event-map-marker--openagenda'
+  return 'event-map-marker--default'
+}
+
+function getGroupSource(group) {
+  const sources = new Set(
+    group.events
+      .map((event) => (event.source || '').trim().toLowerCase())
+      .filter(Boolean),
+  )
+
+  return sources.size === 1 ? Array.from(sources)[0] : ''
+}
+
+function createVenueIcon(group, isDiscovery) {
+  const count = group.events.length
+  const sourceClass = getSourceMarkerClass(getGroupSource(group))
+  const groupedClass =
+    count > 1
+      ? 'event-map-marker--grouped event-map-marker--venue-cluster'
+      : ''
+  const approximateClass = group.isLocationApproximate
+    ? 'event-map-marker--approximate'
+    : ''
+  const discoveryClass = isDiscovery ? 'event-map-marker--discovery' : ''
+  const size = isDiscovery ? (count > 1 ? 24 : 18) : count > 1 ? 34 : 26
+
+  return L.divIcon({
+    className: [
+      'event-map-marker',
+      sourceClass,
+      groupedClass,
+      approximateClass,
+      discoveryClass,
+    ]
+      .filter(Boolean)
+      .join(' '),
+    html: `<span><b></b><i></i>${count > 1 ? `<em>${count}</em>` : ''}</span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  })
+}
+
+function createClusterIcon(eventCount) {
+  const sizeClass =
+    eventCount >= 50 ? 'large' : eventCount >= 10 ? 'medium' : 'small'
+  const size = eventCount >= 50 ? 52 : eventCount >= 10 ? 46 : 40
+
+  return L.divIcon({
+    className: `event-map-cluster event-map-cluster--${sizeClass}`,
+    html: `<span>${eventCount}</span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  })
+}
+
+function clusterVenueGroups(groups, map, zoom) {
+  if (zoom >= DISABLE_CLUSTERING_AT_ZOOM) {
+    return groups.map((group) => ({
+      key: group.key,
+      type: 'venue',
+      latitude: group.latitude,
+      longitude: group.longitude,
+      groups: [group],
+      eventCount: group.events.length,
+    }))
+  }
+
+  const clusters = []
+
+  groups.forEach((group) => {
+    const point = map.project([group.latitude, group.longitude], zoom)
+    const nearbyCluster = clusters.find((cluster) => {
+      const deltaX = cluster.point.x - point.x
+      const deltaY = cluster.point.y - point.y
+      return Math.hypot(deltaX, deltaY) <= MAX_CLUSTER_RADIUS
+    })
+
+    if (nearbyCluster) {
+      nearbyCluster.groups.push(group)
+      nearbyCluster.eventCount += group.events.length
+      const groupCount = nearbyCluster.groups.length
+      nearbyCluster.point = L.point(
+        (nearbyCluster.point.x * (groupCount - 1) + point.x) / groupCount,
+        (nearbyCluster.point.y * (groupCount - 1) + point.y) / groupCount,
+      )
+      const center = map.unproject(nearbyCluster.point, zoom)
+      nearbyCluster.latitude = center.lat
+      nearbyCluster.longitude = center.lng
+      return
+    }
+
+    clusters.push({
+      key: `cluster:${group.key}`,
+      type: 'cluster',
+      latitude: group.latitude,
+      longitude: group.longitude,
+      point,
+      groups: [group],
+      eventCount: group.events.length,
+    })
+  })
+
+  return clusters.map((cluster) => ({
+    ...cluster,
+    type: cluster.groups.length > 1 ? 'cluster' : 'venue',
+  }))
+}
+
+function VenueMapLayer({ groups, isDiscovery, onClusterSelect, onVenueSelect }) {
+  const map = useMap()
+  const [zoom, setZoom] = useState(map.getZoom())
+
+  useMapEvents({
+    zoomend() {
+      const nextZoom = map.getZoom()
+      setZoom((currentZoom) => (currentZoom === nextZoom ? currentZoom : nextZoom))
+    },
+  })
+
+  const visibleMarkers = useMemo(
+    () => clusterVenueGroups(groups, map, zoom),
+    [groups, map, zoom],
+  )
+
+  return visibleMarkers.map((item) => {
+    if (item.type === 'cluster') {
+      const bounds = L.latLngBounds(
+        item.groups.map((group) => [group.latitude, group.longitude]),
+      )
+      return (
+        <Marker
+          key={`${item.key}:${zoom}`}
+          position={[item.latitude, item.longitude]}
+          icon={createClusterIcon(item.eventCount)}
+          eventHandlers={{
+            click: () => {
+              onClusterSelect(item.groups)
+              map.flyToBounds(bounds, {
+                animate: true,
+                duration: 0.7,
+                padding: [32, 32],
+                maxZoom: Math.min(zoom + 3, DISABLE_CLUSTERING_AT_ZOOM),
+              })
+            },
+          }}
+          title={`${item.eventCount} events`}
+        />
+      )
+    }
+
+    const group = item.groups[0]
+    return (
+      <Marker
+        key={group.key}
+        position={[group.latitude, group.longitude]}
+        icon={createVenueIcon(group, isDiscovery)}
+        eventHandlers={{
+          click: () => {
+            onVenueSelect(group)
+            if (map.getZoom() < 13) {
+              map.flyTo([group.latitude, group.longitude], 14, {
+                animate: true,
+                duration: 0.65,
+              })
+            } else {
+              map.panTo([group.latitude, group.longitude], {
+                animate: true,
+                duration: 0.45,
+              })
+            }
+          },
+        }}
+        title={`${group.venue}: ${group.events.length} event${
+          group.events.length === 1 ? '' : 's'
+        }`}
+      />
+    )
+  })
+}
+
+function GlobalGlowMarkers() {
+  return GLOBAL_GLOW_POINTS.map(([latitude, longitude, color]) => (
+    <CircleMarker
+      key={`${latitude},${longitude}`}
+      center={[latitude, longitude]}
+      radius={5}
+      pathOptions={{
+        color,
+        weight: 1,
+        opacity: 0.42,
+        fillColor: color,
+        fillOpacity: 0.2,
+        className: 'global-glow-point global-glow-point--core',
+      }}
+      interactive={false}
+    />
+  ))
+}
+
+function MapAutoFit({ groups, hasSearched }) {
+  const map = useMap()
+
+  useEffect(() => {
+    const frameId = window.requestAnimationFrame(() => {
+      map.invalidateSize({ pan: false })
+
+      if (!hasSearched) {
+        map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
+          animate: true,
+          duration: 1.1,
+        })
+        return
+      }
+
+      if (groups.length === 0) return
+
+      if (groups.length === 1) {
+        map.flyTo([groups[0].latitude, groups[0].longitude], 12, {
+          animate: true,
+          duration: 1.2,
+        })
+        return
+      }
+
+      const bounds = L.latLngBounds(
+        groups.map((group) => [group.latitude, group.longitude]),
+      )
+      map.flyToBounds(bounds, {
+        animate: true,
+        duration: 1.35,
+        padding: [36, 36],
+        maxZoom: 12,
+      })
+    })
+
+    return () => window.cancelAnimationFrame(frameId)
+  }, [groups, hasSearched, map])
+
+  return null
+}
+
+function MapSizeController({ hasSidebar, hasSearched }) {
+  const map = useMap()
+
+  useEffect(() => {
+    const container = map.getContainer()
+    const layout = container.closest('.map-layout')
+    const resizeTarget = container.parentElement
+    let frameId = 0
+
+    const updateMapSize = () => {
+      window.cancelAnimationFrame(frameId)
+      frameId = window.requestAnimationFrame(() => {
+        map.invalidateSize({ pan: false })
+      })
+    }
+
+    updateMapSize()
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', updateMapSize)
+      return () => {
+        window.cancelAnimationFrame(frameId)
+        window.removeEventListener('resize', updateMapSize)
+      }
+    }
+
+    const observer = new ResizeObserver(updateMapSize)
+    if (layout) observer.observe(layout)
+    if (resizeTarget) observer.observe(resizeTarget)
+
+    return () => {
+      window.cancelAnimationFrame(frameId)
+      observer.disconnect()
+    }
+  }, [hasSidebar, hasSearched, map])
+
+  return null
+}
+
+function MapFocusController({ event }) {
+  const map = useMap()
+
+  useEffect(() => {
+    if (!event || !isValidCoordinate(event.latitude, event.longitude)) return
+
+    map.flyTo([Number(event.latitude), Number(event.longitude)], 15, {
+      animate: true,
+      duration: 0.85,
+    })
+  }, [event, map])
+
+  return null
+}
+
+function MapEventsPanel({
+  title,
+  subtitle,
+  events,
+  selectedEventKey,
+  onEventFocus,
+  onClear,
+  closable = true,
+}) {
+  if (events.length === 0) return null
+
+  return (
+    <aside className="venue-group-panel" aria-label={title}>
+      <header className="venue-group-panel__header">
+        <div>
+          <p className="venue-group-panel__eyebrow">
+            {events.length} event{events.length === 1 ? '' : 's'}
+          </p>
+          <h3>{title}</h3>
+          <p>{subtitle}</p>
+        </div>
+        {closable ? (
+          <button
+            type="button"
+            className="venue-group-panel__close"
+            onClick={onClear}
+            aria-label="Clear map selection"
+          >
+            x
+          </button>
+        ) : null}
+      </header>
+      <ul className="venue-group-panel__events">
+        {events.map((event) => {
+          const eventUrl = (event.ticket_url || '').trim()
           return (
-            <li key={event.id || `${event.name}-${event.date}`}>
-              <h4>{event.name || 'Untitled event'}</h4>
-              <p className="event-map-popup__meta">
-                {formatEventTime(event)} · {venue}
-              </p>
+            <li
+              key={event.id || `${event.name}-${event.date}-${event.source}`}
+              className={getEventKey(event) === selectedEventKey ? 'is-selected' : ''}
+            >
+              <EventThumbnail event={event} />
+              <button
+                type="button"
+                className="venue-group-panel__event-focus"
+                onClick={() => onEventFocus(event)}
+              >
+                <h4>{event.name || 'Untitled event'}</h4>
+                <p>{formatEventTime(event)}</p>
+                <p>
+                  {(event.venue || '').trim() || 'Venue TBA'} |{' '}
+                  {(event.city || '').trim() || 'City unavailable'}
+                </p>
+              </button>
               <ProviderBadge
                 source={event.source}
-                href={ticketUrl}
+                href={eventUrl}
                 compact
-                unavailable={!ticketUrl}
+                unavailable={!eventUrl}
               />
             </li>
           )
         })}
       </ul>
-      {remainingEventsCount > 0 ? (
-        <p className="event-map-popup__hint">
-          {remainingEventsCount} more events at this location
-        </p>
-      ) : null}
-    </article>
+    </aside>
   )
-}
-
-function GlobalGlowMarkers() {
-  return GLOBAL_GLOW_POINTS.flatMap((point) => {
-    const key = `${point.latitude},${point.longitude}`
-    const scale = point.scale || 1
-
-    return [
-      <CircleMarker
-        key={`${key}-halo`}
-        center={[point.latitude, point.longitude]}
-        radius={16 * scale}
-        pathOptions={{
-          stroke: false,
-          fillColor: point.color,
-          fillOpacity: 0.16,
-          className: `global-glow-point global-glow-point--halo global-glow-point--${point.tone}`,
-        }}
-        interactive={false}
-      />,
-      <CircleMarker
-        key={`${key}-ring`}
-        center={[point.latitude, point.longitude]}
-        radius={8 * scale}
-        pathOptions={{
-          color: point.color,
-          weight: 1,
-          opacity: 0.38,
-          fillColor: point.color,
-          fillOpacity: 0.1,
-          className: `global-glow-point global-glow-point--ring global-glow-point--${point.tone}`,
-        }}
-        interactive={false}
-      />,
-      <CircleMarker
-        key={`${key}-core`}
-        center={[point.latitude, point.longitude]}
-        radius={3.4 * scale}
-        pathOptions={{
-          color: 'rgba(255, 255, 255, 0.68)',
-          weight: 1,
-          fillColor: point.color,
-          fillOpacity: 0.92,
-          className: `global-glow-point global-glow-point--core global-glow-point--${point.tone}`,
-        }}
-        interactive={false}
-      />,
-    ]
-  })
-}
-
-function MapAutoFit({ events, hasSearched }) {
-  const map = useMap()
-
-  useEffect(() => {
-    if (!hasSearched) {
-      map.flyTo(DEFAULT_CENTER, DEFAULT_ZOOM, {
-        animate: true,
-        duration: 1.1,
-      })
-      return
-    }
-
-    if (events.length === 0) return
-
-    if (events.length === 1) {
-      map.flyTo([events[0].latitude, events[0].longitude], 12, {
-        animate: true,
-        duration: 1.2,
-      })
-      return
-    }
-
-    const bounds = L.latLngBounds(
-      events.map((event) => [event.latitude, event.longitude]),
-    )
-
-    map.flyToBounds(bounds, {
-      animate: true,
-      duration: 1.35,
-      padding: [36, 36],
-      maxZoom: 12,
-    })
-  }, [events, hasSearched, map])
-
-  return null
 }
 
 function MapPreview({
   events,
   loading,
   hasSearched = false,
+  hasActiveFilters = false,
   searchValue = '',
   discoveryError = '',
 }) {
+  const [mapSelection, setMapSelection] = useState(null)
+  const [focusedEventKey, setFocusedEventKey] = useState('')
   const geolocatedEvents = useMemo(
-    () => {
-      const normalizedEvents = events
+    () =>
+      events
         .filter((event) => isValidCoordinate(event.latitude, event.longitude))
         .map((event) => ({
           ...event,
           latitude: Number(event.latitude),
           longitude: Number(event.longitude),
-        }))
-
-      return hasSearched ? normalizedEvents : spreadDiscoveryEvents(normalizedEvents)
-    },
-    [events, hasSearched],
+        })),
+    [events],
   )
-  const groupedEventLocations = useMemo(
-    () => groupEventsByCoordinates(geolocatedEvents),
+  const venueGroups = useMemo(
+    () => groupEventsByVenue(geolocatedEvents),
     [geolocatedEvents],
   )
+  const selectedGroups = useMemo(
+    () =>
+      mapSelection?.groupKeys
+        .map((key) => venueGroups.find((group) => group.key === key))
+        .filter(Boolean) || [],
+    [mapSelection, venueGroups],
+  )
+  const selectedEvents = useMemo(
+    () => selectedGroups.flatMap((group) => group.events),
+    [selectedGroups],
+  )
+  const discoveryPanelEvents = useMemo(
+    () => geolocatedEvents.slice(0, 5),
+    [geolocatedEvents],
+  )
+  const focusedEvent = useMemo(
+    () =>
+      selectedEvents.find((event) => getEventKey(event) === focusedEventKey) ||
+      null,
+    [focusedEventKey, selectedEvents],
+  )
+  useEffect(() => {
+    const selectionIsEmpty = mapSelection && selectedGroups.length === 0
+    const selectionShrank =
+      mapSelection && selectedGroups.length !== mapSelection.groupKeys.length
+    const focusedEventWasFilteredOut = focusedEventKey && !focusedEvent
+
+    if (!selectionIsEmpty && !selectionShrank && !focusedEventWasFilteredOut) {
+      return undefined
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      if (selectionIsEmpty) {
+        setMapSelection(null)
+      } else if (selectionShrank) {
+        setMapSelection((selection) => ({
+          ...selection,
+          groupKeys: selectedGroups.map((group) => group.key),
+        }))
+      }
+
+      if (selectionIsEmpty || focusedEventWasFilteredOut) {
+        setFocusedEventKey('')
+      }
+    }, 0)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [focusedEvent, focusedEventKey, mapSelection, selectedGroups])
+  const panelEvents =
+    selectedEvents.length > 0 ? selectedEvents : discoveryPanelEvents
+  const panelTitle = !mapSelection
+    ? 'Events in this area'
+    : mapSelection.type === 'cluster'
+      ? 'Events in this area'
+      : selectedGroups[0]?.venue || 'Events at this venue'
+  const panelSubtitle = !mapSelection
+    ? `${venueGroups.length} venue${venueGroups.length === 1 ? '' : 's'}`
+    : mapSelection.type === 'cluster'
+      ? `${selectedGroups.length} venues`
+      : `${selectedGroups[0]?.city || 'City unavailable'} | ${
+          selectedEvents.length
+        } event${selectedEvents.length === 1 ? '' : 's'} at this venue`
+  const handleClusterSelect = useCallback((groups) => {
+    setMapSelection({
+      type: 'cluster',
+      groupKeys: groups.map((group) => group.key),
+    })
+    setFocusedEventKey('')
+  }, [])
+  const handleVenueSelect = useCallback((group) => {
+    setMapSelection({ type: 'venue', groupKeys: [group.key] })
+    setFocusedEventKey('')
+  }, [])
+  const handleEventFocus = useCallback((event) => {
+    if (!isValidCoordinate(event.latitude, event.longitude)) return
+    setFocusedEventKey(getEventKey(event))
+  }, [])
+  const handleClearSelection = useCallback(() => {
+    setMapSelection(null)
+    setFocusedEventKey('')
+  }, [])
+
   const showGlobalDiscovery = !hasSearched
   const showGlobalFallback =
-    showGlobalDiscovery && !loading && groupedEventLocations.length === 0
+    showGlobalDiscovery &&
+    !hasActiveFilters &&
+    !loading &&
+    venueGroups.length === 0
   const showDiscoveryLoadingHint =
-    showGlobalDiscovery && loading && groupedEventLocations.length === 0
+    showGlobalDiscovery && loading && venueGroups.length === 0
   const showDiscoveryErrorHint =
     showGlobalFallback && !loading && Boolean(discoveryError)
   const showEmptySearchHint =
     hasSearched && !loading && events.length === 0 && Boolean(searchValue)
+  const showEmptyDiscoveryFilterHint =
+    showGlobalDiscovery &&
+    hasActiveFilters &&
+    !loading &&
+    events.length === 0
+  const hasSidebar = panelEvents.length > 0
 
   return (
     <section className="map-preview" aria-label="Live event map">
-      {showGlobalDiscovery ? (
-        <div className="map-preview__header">
-          <h2 className="map-preview__title">Global discovery</h2>
-          <p className="map-preview__subtitle">
-            Search a city or artist to explore live events.
-          </p>
+      <div className={`map-layout ${hasSidebar ? 'has-sidebar' : ''}`}>
+        <div className="map-box">
+          <MapContainer
+            center={DEFAULT_CENTER}
+            zoom={DEFAULT_ZOOM}
+            minZoom={MIN_MAP_ZOOM}
+            maxBounds={WORLD_BOUNDS}
+            maxBoundsViscosity={1}
+            scrollWheelZoom
+            dragging
+            worldCopyJump={false}
+            className="event-map"
+          >
+            <TileLayer
+              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
+              className="event-map__base-tiles"
+              subdomains="abcd"
+              noWrap
+              url={CARTO_DARK_BASE_TILES_URL}
+            />
+            <TileLayer
+              className="event-map__label-tiles"
+              maxZoom={6}
+              opacity={0.34}
+              subdomains="abcd"
+              noWrap
+              url={CARTO_DARK_LABELS_TILES_URL}
+            />
+            <MapSizeController
+              hasSidebar={hasSidebar}
+              hasSearched={hasSearched}
+            />
+            <MapAutoFit groups={venueGroups} hasSearched={hasSearched} />
+            <MapFocusController event={focusedEvent} />
+            {showGlobalFallback ? <GlobalGlowMarkers /> : null}
+            <VenueMapLayer
+              groups={venueGroups}
+              isDiscovery={showGlobalDiscovery}
+              onClusterSelect={handleClusterSelect}
+              onVenueSelect={handleVenueSelect}
+            />
+          </MapContainer>
+          <div className="map-box__overlay" aria-hidden="true" />
+          {loading ? (
+            <div
+              className="map-loading-bar"
+              role="status"
+              aria-label="Loading events"
+              aria-live="polite"
+            />
+          ) : null}
+          {showDiscoveryLoadingHint ? (
+            <div
+              className="map-box__empty-hint map-box__empty-hint--loading"
+              aria-live="polite"
+            >
+              <p>Loading live events...</p>
+            </div>
+          ) : null}
+          {showEmptySearchHint ? (
+            <div className="map-box__empty-hint" aria-live="polite">
+              <p>No events found for {searchValue}</p>
+            </div>
+          ) : null}
+          {showEmptyDiscoveryFilterHint ? (
+            <div className="map-box__empty-hint" aria-live="polite">
+              <p>No discovery events match these filters</p>
+            </div>
+          ) : null}
+          {showDiscoveryErrorHint ? (
+            <div className="map-box__empty-hint" aria-live="polite">
+              <p>Discovery map unavailable. Search to explore events.</p>
+            </div>
+          ) : null}
         </div>
-      ) : null}
-
-      <div className="map-box">
-        <MapContainer
-          center={DEFAULT_CENTER}
-          zoom={DEFAULT_ZOOM}
-          minZoom={MIN_MAP_ZOOM}
-          maxBounds={WORLD_BOUNDS}
-          maxBoundsViscosity={1}
-          scrollWheelZoom
-          dragging
-          worldCopyJump={false}
-          className="event-map"
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-            subdomains="abcd"
-            noWrap
-            url={CARTO_DARK_TILES_URL}
-          />
-          <MapAutoFit events={groupedEventLocations} hasSearched={hasSearched} />
-          {showGlobalFallback ? <GlobalGlowMarkers /> : null}
-          {groupedEventLocations.map((group) => {
-            const isGrouped = group.events.length > 1
-            const dominantSource = getDominantSource(group.events)
-
-            return (
-              <Marker
-                key={group.key}
-                position={[group.latitude, group.longitude]}
-                icon={createMarkerIcon({
-                  source: dominantSource,
-                  isGrouped,
-                  isApproximate: group.isLocationApproximate,
-                  isDiscovery: showGlobalDiscovery,
-                  count: group.events.length,
-                })}
-              >
-                <Popup>
-                  {group.events.length === 1 ? (
-                    <SingleEventPopup event={group.events[0]} />
-                  ) : (
-                    <GroupedEventsPopup
-                      events={group.events}
-                      isLocationApproximate={group.isLocationApproximate}
-                    />
-                  )}
-                </Popup>
-              </Marker>
-            )
-          })}
-        </MapContainer>
-        <div className="map-box__overlay" aria-hidden="true" />
-        {loading ? (
-          <div
-            className="map-loading-bar"
-            role="status"
-            aria-label="Loading events"
-            aria-live="polite"
-          />
-        ) : null}
-        {showDiscoveryLoadingHint ? (
-          <div className="map-box__empty-hint map-box__empty-hint--loading" aria-live="polite">
-            <p>Loading live events...</p>
-          </div>
-        ) : null}
-        {showEmptySearchHint ? (
-          <div className="map-box__empty-hint" aria-live="polite">
-            <p>No events found for {searchValue}</p>
-          </div>
-        ) : null}
-        {showDiscoveryErrorHint ? (
-          <div className="map-box__empty-hint" aria-live="polite">
-            <p>Discovery map unavailable. Search to explore events.</p>
-          </div>
-        ) : null}
+        <MapEventsPanel
+          title={panelTitle}
+          subtitle={panelSubtitle}
+          events={panelEvents}
+          selectedEventKey={focusedEventKey}
+          onEventFocus={handleEventFocus}
+          onClear={handleClearSelection}
+          closable={Boolean(mapSelection)}
+        />
       </div>
     </section>
   )

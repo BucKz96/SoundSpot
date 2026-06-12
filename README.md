@@ -98,16 +98,7 @@ The long-term goal is to turn SoundSpot into a richer live event discovery app w
 - Pydantic
 - HTTPX
 
-### External services
 
-- Ticketmaster Discovery API
-- Shotgun Events API
-- Geocoding service for location-based search and fallback coordinates
-
-### Deployment
-
-- Vercel for the frontend
-- Render for the backend
 
 ### Tools
 
@@ -163,7 +154,7 @@ The backend normalizes both providers into the same response format, merges the 
 
 ---
 
-### Artist search
+
 
 Users can also search for events by artist.
 
@@ -254,6 +245,30 @@ Example:
 
 The goal is to keep the frontend simple.
 It receives clean data and does not need to understand the full Ticketmaster or Shotgun response structure.
+
+### Spotify artist search
+
+```http
+GET /api/artists/spotify/search?name=Daft%20Punk
+```
+
+Spotify credentials remain on the backend and use the Client Credentials Flow.
+The endpoint enriches an artist on demand and does not provide event data.
+
+Example response:
+
+```json
+{
+  "id": "4tZwfgrHOc3mvqYlEYSvVi",
+  "name": "Daft Punk",
+  "spotify_url": "https://open.spotify.com/artist/4tZwfgrHOc3mvqYlEYSvVi",
+  "image_url": "https://example.com/artist.jpg",
+  "genres": ["electro", "filter house"],
+  "popularity": 82,
+  "followers": 1234567,
+  "provider": "spotify"
+}
+```
 
 ---
 
@@ -363,7 +378,7 @@ Current limitations include:
 
 Shotgun improves French and local event coverage, especially for clubs, concerts, independent scenes and local organizers.
 
-Future work should focus on better provider coverage, stronger deduplication, and additional provider audits.
+
 
 ---
 
@@ -371,35 +386,6 @@ Future work should focus on better provider coverage, stronger deduplication, an
 
 ### Done
 
-* [x] FastAPI backend
-* [x] React/Vite frontend
-* [x] Frontend/backend communication
-* [x] Ticketmaster API integration
-* [x] Shotgun API integration
-* [x] Event data normalization
-* [x] Multi-source city search
-* [x] Search by city
-* [x] Search by artist
-* [x] City / Artist search mode
-* [x] Loading, error and empty states
-* [x] City alias normalization
-* [x] Modern dark UI
-* [x] Frontend deployment
-* [x] Backend deployment
-* [x] Interactive map
-* [x] Event markers
-* [x] Grouped map markers
-* [x] Map popups
-* [x] Radius-based city search
-* [x] Fallback coordinates for incomplete geolocation data
-* [x] Event list pagination
-* [x] Provider badges
-* [x] Provider links
-* [x] Backend genre normalization
-* [x] Genre/style filters
-* [x] Source filter
-* [x] Date range filter
-* [x] Real global discovery map data
 
 ---
 

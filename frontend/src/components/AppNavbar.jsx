@@ -10,7 +10,7 @@ function AppNavbar() {
         </a>
 
         <nav className="app-navbar__nav" aria-label="Primary navigation">
-          <a href="#explore">Explore</a>
+          <a href="#explore-map">Explore</a>
           <a href="#how-it-works">How it works</a>
           <a href="#sources">Sources</a>
           <a href="#about">About</a>
@@ -22,6 +22,13 @@ function AppNavbar() {
             GitHub
           </a>
         </nav>
+
+        <div className="app-navbar__actions">
+          <button type="button" disabled title="Authentication is coming later">
+            Sign in
+          </button>
+          <a href="#explore-map">Get started</a>
+        </div>
       </div>
     </header>
   )

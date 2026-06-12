@@ -1,2 +1,6 @@
 export { httpGet } from './httpClient'
-export { getEvents } from './api'
+export {
+  getEvents,
+  getSpotifyArtist,
+  SpotifyArtistError,
+} from './api'
