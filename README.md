@@ -58,9 +58,10 @@ The long-term goal is to turn SoundSpot into an interactive music discovery app 
 - Pydantic
 - HTTPX
 
-### External API
+### External APIs
 
 - Ticketmaster Discovery API
+- Spotify Web API for on-demand artist enrichment
 
 ### Tools
 
@@ -113,6 +114,8 @@ Add your Ticketmaster API key:
 
 ```env
 TICKETMASTER_API_KEY=your_ticketmaster_api_key
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 ```
 
 Run the backend:
@@ -217,6 +220,30 @@ GET /api/events
 
 This endpoint currently returns mock events and is mainly used as a development fallback.
 
+### Spotify artist search
+
+```http
+GET /api/artists/spotify/search?name=Daft%20Punk
+```
+
+Spotify credentials remain on the backend and use the Client Credentials Flow.
+The endpoint enriches an artist on demand and does not provide event data.
+
+Example response:
+
+```json
+{
+  "id": "4tZwfgrHOc3mvqYlEYSvVi",
+  "name": "Daft Punk",
+  "spotify_url": "https://open.spotify.com/artist/4tZwfgrHOc3mvqYlEYSvVi",
+  "image_url": "https://example.com/artist.jpg",
+  "genres": ["electro", "filter house"],
+  "popularity": 82,
+  "followers": 1234567,
+  "provider": "spotify"
+}
+```
+
 ---
 
 ## Deployment notes
@@ -241,6 +268,8 @@ Backend environment variables:
 
 ```env
 TICKETMASTER_API_KEY=your_ticketmaster_api_key
+SPOTIFY_CLIENT_ID=your_spotify_client_id
+SPOTIFY_CLIENT_SECRET=your_spotify_client_secret
 FRONTEND_URL=https://your-vercel-frontend-url.vercel.app
 BACKEND_CORS_ORIGINS=http://localhost:5173,https://your-vercel-frontend-url.vercel.app
 ```
@@ -268,7 +297,7 @@ BACKEND_CORS_ORIGINS=http://localhost:5173,https://your-vercel-frontend-url.verc
 - [ ] Add an interactive map
 - [ ] Display event markers on the map
 - [ ] Improve event details
-- [ ] Add Spotify artist enrichment
+- [x] Add Spotify artist enrichment API
 - [ ] Add screenshots to the README
 - [ ] Add basic backend tests
 
