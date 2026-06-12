@@ -5,6 +5,9 @@ class Settings(BaseSettings):
     app_name: str = "SoundSpot"
     app_env: str = "development"
     frontend_url: str = "http://localhost:5173"
+    database_url: str = (
+        "postgresql+psycopg://soundspot:soundspot@localhost:5432/soundspot"
+    )
     ticketmaster_api_key: str = ""
     openagenda_api_key: str = ""
     openagenda_agenda_uids: str = ""
