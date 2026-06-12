@@ -1,5 +1,6 @@
 const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 const spotifyArtistCache = new Map()
+const spotifyArtistRequests = new Map()
 
 export class SpotifyArtistError extends Error {
   constructor(message, status = 0) {
@@ -62,21 +63,7 @@ export async function getEventsByArtist(artist) {
   return getJsonArray(response, 'Failed to search events')
 }
 
-export async function getSpotifyArtist(name) {
-  const normalizedName = name.trim()
-  if (!normalizedName) {
-    throw new SpotifyArtistError('Artist name is required', 400)
-  }
-
-  const cacheKey = normalizeArtistCacheKey(normalizedName)
-  if (spotifyArtistCache.has(cacheKey)) {
-    const cachedArtist = spotifyArtistCache.get(cacheKey)
-    if (cachedArtist === null) {
-      throw new SpotifyArtistError('No reliable Spotify match found', 404)
-    }
-    return cachedArtist
-  }
-
+async function requestSpotifyArtist(normalizedName, cacheKey) {
   let response
   try {
     response = await fetch(
@@ -104,4 +91,31 @@ export async function getSpotifyArtist(name) {
 
   spotifyArtistCache.set(cacheKey, artist)
   return artist
+}
+
+export async function getSpotifyArtist(name) {
+  const normalizedName = name.trim()
+  if (!normalizedName) {
+    throw new SpotifyArtistError('Artist name is required', 400)
+  }
+
+  const cacheKey = normalizeArtistCacheKey(normalizedName)
+  if (spotifyArtistCache.has(cacheKey)) {
+    const cachedArtist = spotifyArtistCache.get(cacheKey)
+    if (cachedArtist === null) {
+      throw new SpotifyArtistError('No reliable Spotify match found', 404)
+    }
+    return cachedArtist
+  }
+
+  if (spotifyArtistRequests.has(cacheKey)) {
+    return spotifyArtistRequests.get(cacheKey)
+  }
+
+  const request = requestSpotifyArtist(normalizedName, cacheKey).finally(() => {
+    spotifyArtistRequests.delete(cacheKey)
+  })
+  spotifyArtistRequests.set(cacheKey, request)
+
+  return request
 }

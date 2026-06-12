@@ -45,7 +45,9 @@ function ArtistDetailsSkeleton() {
 function ArtistDetailsModal({ artistName, onClose }) {
   const [artist, setArtist] = useState(null)
   const [status, setStatus] = useState('loading')
+  const [imageFailed, setImageFailed] = useState(false)
   const closeButtonRef = useRef(null)
+  const previousFocusRef = useRef(null)
   const titleId = useId()
   const descriptionId = useId()
 
@@ -72,6 +74,7 @@ function ArtistDetailsModal({ artistName, onClose }) {
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
+    previousFocusRef.current = document.activeElement
     document.body.style.overflow = 'hidden'
     closeButtonRef.current?.focus()
 
@@ -83,10 +86,11 @@ function ArtistDetailsModal({ artistName, onClose }) {
     return () => {
       document.body.style.overflow = previousOverflow
       document.removeEventListener('keydown', handleKeyDown)
+      previousFocusRef.current?.focus()
     }
   }, [onClose])
 
-  const imageUrl = getArtistImage(artist)
+  const imageUrl = imageFailed ? '' : getArtistImage(artist)
   const spotifyUrl = getSpotifyUrl(artist)
   const followers = getFollowers(artist)
   const genres = Array.isArray(artist?.genres) ? artist.genres.filter(Boolean) : []
@@ -97,6 +101,7 @@ function ArtistDetailsModal({ artistName, onClose }) {
   return createPortal(
     <div
       className="artist-modal__overlay"
+      role="presentation"
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
@@ -137,7 +142,11 @@ function ArtistDetailsModal({ artistName, onClose }) {
           <div className="artist-modal__body">
             <div className="artist-modal__visual">
               {imageUrl ? (
-                <img src={imageUrl} alt="" />
+                <img
+                  src={imageUrl}
+                  alt=""
+                  onError={() => setImageFailed(true)}
+                />
               ) : (
                 <span aria-hidden="true">{artist?.name?.charAt(0) || '?'}</span>
               )}
@@ -181,7 +190,7 @@ function ArtistDetailsModal({ artistName, onClose }) {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Open on Spotify <span aria-hidden="true">↗</span>
+                  Open on Spotify <span aria-hidden="true">&nearr;</span>
                 </a>
               ) : null}
             </div>
@@ -189,7 +198,7 @@ function ArtistDetailsModal({ artistName, onClose }) {
         ) : null}
 
         {status === 'not-found' ? (
-          <div className="artist-modal__message">
+          <div className="artist-modal__message" role="status">
             <h2 id={titleId}>{artistName}</h2>
             <p id={descriptionId}>
               No reliable Spotify match found for this artist.
@@ -198,7 +207,7 @@ function ArtistDetailsModal({ artistName, onClose }) {
         ) : null}
 
         {status === 'error' ? (
-          <div className="artist-modal__message">
+          <div className="artist-modal__message" role="alert">
             <h2 id={titleId}>{artistName}</h2>
             <p id={descriptionId}>
               Artist details are temporarily unavailable.

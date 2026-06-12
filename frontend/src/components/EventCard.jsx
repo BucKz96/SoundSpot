@@ -7,6 +7,8 @@ const GENERIC_ARTIST_NAMES = new Set([
   'artists',
   'live music',
   'multiple artists',
+  'organizer',
+  'organizers',
   'unknown',
   'unknown artist',
   'various',
@@ -92,7 +94,8 @@ function EventCard({ event }) {
               type="button"
               onClick={() => setShowArtistDetails(true)}
             >
-              Artist details
+              <span aria-hidden="true" />
+              View artist
             </button>
           ) : null}
         </div>
