@@ -2,12 +2,72 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
 const spotifyArtistCache = new Map()
 const spotifyArtistRequests = new Map()
 
+export class AuthApiError extends Error {
+  constructor(message, status = 0) {
+    super(message)
+    this.name = 'AuthApiError'
+    this.status = status
+  }
+}
+
 export class SpotifyArtistError extends Error {
   constructor(message, status = 0) {
     super(message)
     this.name = 'SpotifyArtistError'
     this.status = status
   }
+}
+
+async function requestAuth(path, options = {}) {
+  let response
+
+  try {
+    response = await fetch(`${baseUrl}${path}`, {
+      ...options,
+      credentials: 'include',
+      headers: options.body
+        ? {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          }
+        : options.headers,
+    })
+  } catch {
+    throw new AuthApiError('Unable to reach the authentication service.')
+  }
+
+  if (!response.ok) {
+    const detail = await getErrorDetail(response)
+    throw new AuthApiError(
+      detail || `Authentication request failed with status ${response.status}`,
+      response.status,
+    )
+  }
+
+  if (response.status === 204) return null
+  return response.json()
+}
+
+export function registerUser(payload) {
+  return requestAuth('/api/auth/register', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function loginUser(payload) {
+  return requestAuth('/api/auth/login', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export function getCurrentUser() {
+  return requestAuth('/api/auth/me')
+}
+
+export function logoutUser() {
+  return requestAuth('/api/auth/logout', { method: 'POST' })
 }
 
 function normalizeArtistCacheKey(name) {
