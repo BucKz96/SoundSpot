@@ -4,6 +4,7 @@ import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
 import EventFilters from '../components/EventFilters'
+import EventDetailsModal from '../components/EventDetailsModal'
 import FavoritesView from '../components/FavoritesView'
 import {
   AboutSoundSpot,
@@ -157,6 +158,8 @@ function HomePage() {
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
   const [hasSearched, setHasSearched] = useState(false)
+  const [eventViewMode, setEventViewMode] = useState('map')
+  const [selectedEventDetails, setSelectedEventDetails] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedGenre, setSelectedGenre] = useState(DEFAULT_GENRE_FILTER)
   const [selectedSource, setSelectedSource] = useState(DEFAULT_SOURCE_FILTER)
@@ -208,6 +211,7 @@ function HomePage() {
   const paginatedEvents = filteredEvents.slice(startIndex, endIndex)
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PER_PAGE))
   const mapLoading = hasSearched ? loading : discoveryLoading
+  const listLoading = hasSearched ? loading : discoveryLoading
   const mapTitle = hasSearched ? lastSearch.value : 'Explore the world'
   const mapMicrocopy = hasSearched
     ? loading
@@ -372,6 +376,7 @@ function HomePage() {
     const resolvedTargetId =
       typeof targetId === 'string' ? targetId : 'explore-map'
     setActiveView('home')
+    setEventViewMode('map')
     window.requestAnimationFrame(() => {
       document.getElementById(resolvedTargetId)?.scrollIntoView({
         behavior: 'smooth',
@@ -447,16 +452,18 @@ function HomePage() {
                   aria-label="Event view"
                 >
                   <button
-                    className="is-active"
+                    className={eventViewMode === 'map' ? 'is-active' : ''}
                     type="button"
-                    aria-pressed="true"
+                    aria-pressed={eventViewMode === 'map'}
+                    onClick={() => setEventViewMode('map')}
                   >
                     Map
                   </button>
                   <button
+                    className={eventViewMode === 'list' ? 'is-active' : ''}
                     type="button"
-                    disabled
-                    title="List view is coming later"
+                    aria-pressed={eventViewMode === 'list'}
+                    onClick={() => setEventViewMode('list')}
                   >
                     List
                   </button>
@@ -475,30 +482,43 @@ function HomePage() {
                 onQuickFilter={handleQuickFilter}
                 onReset={resetFilters}
               />
-              <MapPreview
-                events={filteredEvents}
-                loading={mapLoading}
-                hasSearched={hasSearched}
-                hasActiveFilters={hasActiveFilters}
-                searchValue={lastSearch.value}
-                discoveryError={discoveryError}
-              />
-            </div>
-            {hasSearched && !loading && !error ? (
-              <div className="content-panel content-panel--events">
-                <EventList
-                  events={paginatedEvents}
-                  searchType={lastSearch.type}
+              {eventViewMode === 'map' ? (
+                <MapPreview
+                  events={filteredEvents}
+                  loading={mapLoading}
+                  hasSearched={hasSearched}
+                  hasActiveFilters={hasActiveFilters}
                   searchValue={lastSearch.value}
-                  totalEventsCount={filteredEvents.length}
-                  currentPage={currentPage}
-                  eventsPerPage={EVENTS_PER_PAGE}
-                  onPreviousPage={handlePreviousPage}
-                  onNextPage={handleNextPage}
-                  emptyMessage={emptyEventsMessage}
+                  discoveryError={discoveryError}
+                  onEventOpen={setSelectedEventDetails}
                 />
-              </div>
-            ) : null}
+              ) : (
+                <div className="map-showcase__list-panel">
+                  {listLoading ? (
+                    <div className="event-list-section__loading" role="status">
+                      Loading events...
+                    </div>
+                  ) : error ? (
+                    <div className="event-list-section__loading" role="status">
+                      Unable to load events.
+                    </div>
+                  ) : (
+                    <EventList
+                      events={paginatedEvents}
+                      searchType={lastSearch.type}
+                      searchValue={lastSearch.value}
+                      totalEventsCount={filteredEvents.length}
+                      currentPage={currentPage}
+                      eventsPerPage={EVENTS_PER_PAGE}
+                      onPreviousPage={handlePreviousPage}
+                      onNextPage={handleNextPage}
+                      onEventOpen={setSelectedEventDetails}
+                      emptyMessage={emptyEventsMessage}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </section>
         </section>
 
@@ -516,6 +536,12 @@ function HomePage() {
       )}
 
       <AppFooter />
+      {selectedEventDetails ? (
+        <EventDetailsModal
+          event={selectedEventDetails}
+          onClose={() => setSelectedEventDetails(null)}
+        />
+      ) : null}
     </div>
   )
 }
