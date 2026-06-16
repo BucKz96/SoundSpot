@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import { useAuth } from '../auth/useAuth'
-import { useFavorites } from '../favorites/useFavorites'
 import ArtistDetailsModal from './ArtistDetailsModal'
 import ProviderBadge from './ProviderBadge'
+import useEventFavoriteAction from './useEventFavoriteAction'
 
 const GENERIC_ARTIST_NAMES = new Set([
   'artist',
@@ -68,20 +67,8 @@ function displayDateParts(date) {
   }
 }
 
-function EventCard({ event }) {
-  const {
-    isAuthenticated,
-    openAuthModal,
-    refreshCurrentUser,
-  } = useAuth()
-  const {
-    addFavorite,
-    removeFavorite,
-    isFavorite,
-    isFavoritePending,
-  } = useFavorites()
+function EventCard({ event, onOpenDetails }) {
   const [showArtistDetails, setShowArtistDetails] = useState(false)
-  const [favoriteError, setFavoriteError] = useState('')
   const title = (event.name || '').trim() || 'Untitled event'
   const artist = displayArtist(event.artist)
   const canShowArtistDetails = hasArtistDetails(event.artist)
@@ -91,43 +78,36 @@ function EventCard({ event }) {
   const time = displayTime(event.time)
   const dateParts = displayDateParts(event.date)
   const ticketUrl = (event.ticket_url || '').trim()
-  const favorite = isFavorite(event)
-  const favoritePending = isFavoritePending(event)
+  const {
+    favorite,
+    favoritePending,
+    favoriteError,
+    toggleFavorite,
+  } = useEventFavoriteAction(event)
   const favoriteLabel = favorite
     ? `Remove ${title} from favorites`
     : `Add ${title} to favorites`
 
-  async function handleFavoriteClick() {
-    setFavoriteError('')
+  function openDetails() {
+    onOpenDetails?.(event)
+  }
 
-    if (!isAuthenticated) {
-      openAuthModal('register', 'Create an account to save events.')
-      return
-    }
-
-    try {
-      if (favorite) await removeFavorite(event)
-      else await addFavorite(event)
-    } catch (error) {
-      if (error?.status === 401) {
-        try {
-          const currentUser = await refreshCurrentUser()
-          if (!currentUser) {
-            openAuthModal('login', 'Your session expired. Sign in to save events.')
-          } else {
-            setFavoriteError('Favorite update failed. Please try again.')
-          }
-        } catch {
-          setFavoriteError('Favorite update failed. Please try again.')
-        }
-        return
-      }
-      setFavoriteError('Favorite update failed. Please try again.')
-    }
+  function handleCardKeyDown(keyEvent) {
+    if (!onOpenDetails) return
+    if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return
+    if (keyEvent.target.closest('button, a')) return
+    keyEvent.preventDefault()
+    openDetails()
   }
 
   return (
-    <article className="event-card">
+    <article
+      className={onOpenDetails ? 'event-card event-card--interactive' : 'event-card'}
+      role={onOpenDetails ? 'button' : undefined}
+      tabIndex={onOpenDetails ? 0 : undefined}
+      onClick={onOpenDetails ? openDetails : undefined}
+      onKeyDown={handleCardKeyDown}
+    >
       <button
         className={[
           'event-card__favorite',
@@ -137,7 +117,10 @@ function EventCard({ event }) {
           .filter(Boolean)
           .join(' ')}
         type="button"
-        onClick={handleFavoriteClick}
+        onClick={(clickEvent) => {
+          clickEvent.stopPropagation()
+          toggleFavorite()
+        }}
         disabled={favoritePending}
         aria-pressed={favorite}
         aria-label={favoritePending ? 'Updating favorite' : favoriteLabel}
@@ -166,7 +149,10 @@ function EventCard({ event }) {
             <button
               className="event-card__artist-action"
               type="button"
-              onClick={() => setShowArtistDetails(true)}
+              onClick={(clickEvent) => {
+                clickEvent.stopPropagation()
+                setShowArtistDetails(true)
+              }}
             >
               <span aria-hidden="true" />
               View artist
@@ -190,7 +176,10 @@ function EventCard({ event }) {
         </div>
       </dl>
 
-      <div className="event-card__actions">
+      <div
+        className="event-card__actions"
+        onClick={(clickEvent) => clickEvent.stopPropagation()}
+      >
         <ProviderBadge
           source={event.source}
           href={ticketUrl}

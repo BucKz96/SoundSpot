@@ -222,7 +222,13 @@ function clusterVenueGroups(groups, map, zoom) {
   }))
 }
 
-function VenueMapLayer({ groups, isDiscovery, onClusterSelect, onVenueSelect }) {
+function VenueMapLayer({
+  groups,
+  isDiscovery,
+  onClusterSelect,
+  onVenueSelect,
+  onEventOpen,
+}) {
   const map = useMap()
   const [zoom, setZoom] = useState(map.getZoom())
 
@@ -273,6 +279,9 @@ function VenueMapLayer({ groups, isDiscovery, onClusterSelect, onVenueSelect }) 
         eventHandlers={{
           click: () => {
             onVenueSelect(group)
+            if (group.events.length === 1) {
+              onEventOpen?.(group.events[0])
+            }
             if (map.getZoom() < 13) {
               map.flyTo([group.latitude, group.longitude], 14, {
                 animate: true,
@@ -409,12 +418,40 @@ function MapFocusController({ event }) {
   return null
 }
 
+function MapLabelDensityController() {
+  const map = useMap()
+
+  useEffect(() => {
+    const container = map.getContainer()
+
+    function updateLabelDensity() {
+      const zoom = map.getZoom()
+      container.classList.toggle('event-map--labels-regional', zoom >= 8)
+      container.classList.toggle('event-map--labels-local', zoom >= 11)
+    }
+
+    updateLabelDensity()
+    map.on('zoomend', updateLabelDensity)
+
+    return () => {
+      map.off('zoomend', updateLabelDensity)
+      container.classList.remove(
+        'event-map--labels-regional',
+        'event-map--labels-local',
+      )
+    }
+  }, [map])
+
+  return null
+}
+
 function MapEventsPanel({
   title,
   subtitle,
   events,
   selectedEventKey,
   onEventFocus,
+  onEventOpen,
   onClear,
   closable = true,
 }) {
@@ -453,7 +490,10 @@ function MapEventsPanel({
               <button
                 type="button"
                 className="venue-group-panel__event-focus"
-                onClick={() => onEventFocus(event)}
+                onClick={() => {
+                  onEventFocus(event)
+                  onEventOpen?.(event)
+                }}
               >
                 <h4>{event.name || 'Untitled event'}</h4>
                 <p>{formatEventTime(event)}</p>
@@ -483,6 +523,7 @@ function MapPreview({
   hasActiveFilters = false,
   searchValue = '',
   discoveryError = '',
+  onEventOpen,
 }) {
   const [mapSelection, setMapSelection] = useState(null)
   const [focusedEventKey, setFocusedEventKey] = useState('')
@@ -552,17 +593,23 @@ function MapPreview({
   const panelEvents =
     selectedEvents.length > 0 ? selectedEvents : discoveryPanelEvents
   const panelTitle = !mapSelection
-    ? 'Events in this area'
+    ? `${panelEvents.length} event${panelEvents.length === 1 ? '' : 's'} nearby`
     : mapSelection.type === 'cluster'
       ? 'Events in this area'
-      : selectedGroups[0]?.venue || 'Events at this venue'
+      : 'Events at this venue'
   const panelSubtitle = !mapSelection
     ? `${venueGroups.length} venue${venueGroups.length === 1 ? '' : 's'}`
     : mapSelection.type === 'cluster'
-      ? `${selectedGroups.length} venues`
-      : `${selectedGroups[0]?.city || 'City unavailable'} | ${
-          selectedEvents.length
-        } event${selectedEvents.length === 1 ? '' : 's'} at this venue`
+      ? `${selectedEvents.length} event${
+          selectedEvents.length === 1 ? '' : 's'
+        } across ${selectedGroups.length} venue${
+          selectedGroups.length === 1 ? '' : 's'
+        }`
+      : `${selectedGroups[0]?.venue || 'Venue TBA'} | ${
+          selectedGroups[0]?.city || 'City unavailable'
+        } | ${selectedEvents.length} event${
+          selectedEvents.length === 1 ? '' : 's'
+        }`
   const handleClusterSelect = useCallback((groups) => {
     setMapSelection({
       type: 'cluster',
@@ -626,8 +673,7 @@ function MapPreview({
             />
             <TileLayer
               className="event-map__label-tiles"
-              maxZoom={6}
-              opacity={0.34}
+              opacity={0.56}
               subdomains="abcd"
               noWrap
               url={CARTO_DARK_LABELS_TILES_URL}
@@ -638,12 +684,14 @@ function MapPreview({
             />
             <MapAutoFit groups={venueGroups} hasSearched={hasSearched} />
             <MapFocusController event={focusedEvent} />
+            <MapLabelDensityController />
             {showGlobalFallback ? <GlobalGlowMarkers /> : null}
             <VenueMapLayer
               groups={venueGroups}
               isDiscovery={showGlobalDiscovery}
               onClusterSelect={handleClusterSelect}
               onVenueSelect={handleVenueSelect}
+              onEventOpen={onEventOpen}
             />
           </MapContainer>
           <div className="map-box__overlay" aria-hidden="true" />
@@ -685,6 +733,7 @@ function MapPreview({
           events={panelEvents}
           selectedEventKey={focusedEventKey}
           onEventFocus={handleEventFocus}
+          onEventOpen={onEventOpen}
           onClear={handleClearSelection}
           closable={Boolean(mapSelection)}
         />

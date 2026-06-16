@@ -11,6 +11,7 @@ function EventList({
   eventsPerPage = events.length,
   onPreviousPage,
   onNextPage,
+  onEventOpen,
 }) {
   const resultLabel = totalEventsCount > 1 ? 'events' : 'event'
   const activeSearchValue = searchValue || searchedCity
@@ -67,7 +68,7 @@ function EventList({
       </div>
       <div className="event-list">
         {events.map((event) => (
-          <EventCard key={event.id} event={event} />
+          <EventCard key={event.id} event={event} onOpenDetails={onEventOpen} />
         ))}
       </div>
       {shouldShowPagination ? (
