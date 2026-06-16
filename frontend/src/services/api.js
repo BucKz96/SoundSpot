@@ -1,4 +1,5 @@
-const baseUrl = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000'
+const defaultBaseUrl = `${window.location.protocol}//${window.location.hostname}:8000`
+const baseUrl = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl
 const spotifyArtistCache = new Map()
 const spotifyArtistRequests = new Map()
 
@@ -6,6 +7,14 @@ export class AuthApiError extends Error {
   constructor(message, status = 0) {
     super(message)
     this.name = 'AuthApiError'
+    this.status = status
+  }
+}
+
+export class FavoriteApiError extends Error {
+  constructor(message, status = 0) {
+    super(message)
+    this.name = 'FavoriteApiError'
     this.status = status
   }
 }
@@ -68,6 +77,58 @@ export function getCurrentUser() {
 
 export function logoutUser() {
   return requestAuth('/api/auth/logout', { method: 'POST' })
+}
+
+async function requestFavorites(path = '', options = {}) {
+  let response
+
+  try {
+    response = await fetch(`${baseUrl}/api/favorites/events${path}`, {
+      ...options,
+      credentials: 'include',
+      headers: options.body
+        ? {
+            'Content-Type': 'application/json',
+            ...options.headers,
+          }
+        : options.headers,
+    })
+  } catch {
+    throw new FavoriteApiError('Unable to reach the favorites service.')
+  }
+
+  if (!response.ok) {
+    const detail = await getErrorDetail(response)
+    throw new FavoriteApiError(
+      detail || `Favorite request failed with status ${response.status}`,
+      response.status,
+    )
+  }
+
+  if (response.status === 204) return null
+  return response.json()
+}
+
+export function getEventFavorites() {
+  return requestFavorites().then((favorites) => {
+    if (!Array.isArray(favorites)) {
+      throw new FavoriteApiError('Invalid favorites response.')
+    }
+    return favorites
+  })
+}
+
+export function createEventFavorite(eventPayload) {
+  return requestFavorites('', {
+    method: 'POST',
+    body: JSON.stringify(eventPayload),
+  })
+}
+
+export function deleteEventFavorite(favoriteId) {
+  return requestFavorites(`/${encodeURIComponent(favoriteId)}`, {
+    method: 'DELETE',
+  })
 }
 
 function normalizeArtistCacheKey(name) {

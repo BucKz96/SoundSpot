@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useAuth } from '../auth/useAuth'
 import logo from '../assets/soundspot-logo.png'
 import { howItWorksSteps } from '../data/landingData'
 import {
@@ -6,6 +7,7 @@ import {
   mockFutureSources,
   mockTrendingCities,
 } from '../data/landingMockData'
+import { useFavorites } from '../favorites/useFavorites'
 import ProviderBadge from './ProviderBadge'
 
 function getEventImage(event) {
@@ -103,6 +105,113 @@ export function TrendingCities({ onCitySelect }) {
   )
 }
 
+function FeaturedEventCard({ event, index }) {
+  const {
+    isAuthenticated,
+    openAuthModal,
+    refreshCurrentUser,
+  } = useAuth()
+  const {
+    addFavorite,
+    removeFavorite,
+    isFavorite,
+    isFavoritePending,
+  } = useFavorites()
+  const [favoriteError, setFavoriteError] = useState('')
+  const image = getEventImage(event)
+  const ticketUrl = (event.ticket_url || '').trim()
+  const favorite = isFavorite(event)
+  const favoritePending = isFavoritePending(event)
+  const title = event.name || 'Untitled event'
+
+  async function handleFavoriteClick() {
+    setFavoriteError('')
+
+    if (!isAuthenticated) {
+      openAuthModal('register', 'Create an account to save events.')
+      return
+    }
+
+    try {
+      if (favorite) await removeFavorite(event)
+      else await addFavorite(event)
+    } catch (error) {
+      if (error?.status === 401) {
+        try {
+          const currentUser = await refreshCurrentUser()
+          if (!currentUser) {
+            openAuthModal('login', 'Your session expired. Sign in to save events.')
+          } else {
+            setFavoriteError('Favorite update failed. Please try again.')
+          }
+        } catch {
+          setFavoriteError('Favorite update failed. Please try again.')
+        }
+        return
+      }
+      setFavoriteError('Favorite update failed. Please try again.')
+    }
+  }
+
+  return (
+    <article
+      className={`featured-event featured-event--${
+        event.tone || ['violet', 'cyan', 'magenta', 'blue'][index % 4]
+      }`}
+    >
+      <div
+        className={`featured-event__visual ${image ? 'has-image' : ''}`.trim()}
+        style={image ? { backgroundImage: `url("${image}")` } : undefined}
+      >
+        <span>{formatFeaturedDate(event.date)}</span>
+        <button
+          className={[
+            'featured-event__favorite',
+            favorite ? 'is-favorite' : '',
+            favoritePending ? 'is-loading' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          type="button"
+          onClick={handleFavoriteClick}
+          disabled={favoritePending}
+          aria-pressed={favorite}
+          aria-label={
+            favorite
+              ? `Remove ${title} from favorites`
+              : `Add ${title} to favorites`
+          }
+          title={favorite ? 'Remove from favorites' : 'Add to favorites'}
+        >
+          {favorite ? '\u2665' : '\u2661'}
+        </button>
+      </div>
+      <div className="featured-event__body">
+        <h3>{title}</h3>
+        <p>
+          {(event.venue || '').trim() || 'Venue TBA'}
+          <span aria-hidden="true"> / </span>
+          {(event.city || '').trim() || 'City TBA'}
+        </p>
+        {event.time ? (
+          <p className="featured-event__time">{event.time}</p>
+        ) : null}
+        {favoriteError ? (
+          <p className="featured-event__favorite-error" role="alert">
+            {favoriteError}
+          </p>
+        ) : null}
+        <ProviderBadge
+          source={event.source}
+          href={ticketUrl}
+          compact
+          unavailable={!ticketUrl}
+        />
+      </div>
+    </article>
+  )
+}
+
 export function FeaturedEvents({ events, loading }) {
   const realEvents = events.slice(0, 3)
   const displayEvents =
@@ -140,11 +249,8 @@ export function FeaturedEvents({ events, loading }) {
                 aria-hidden="true"
               />
             ))
-          : displayEvents.map((event, index) => {
-              const image = getEventImage(event)
-              const ticketUrl = (event.ticket_url || '').trim()
-
-              return (
+          : displayEvents.map((event, index) =>
+              event.isVisionPreview ? (
                 <article
                   className={`featured-event featured-event--${
                     event.tone || ['violet', 'cyan', 'magenta', 'blue'][index % 4]
@@ -154,22 +260,8 @@ export function FeaturedEvents({ events, loading }) {
                     `${event.name || 'event'}-${event.date || ''}-${index}`
                   }
                 >
-                  <div
-                    className={`featured-event__visual ${
-                      image ? 'has-image' : ''
-                    }`.trim()}
-                    style={image ? { backgroundImage: `url("${image}")` } : undefined}
-                  >
+                  <div className="featured-event__visual">
                     <span>{formatFeaturedDate(event.date)}</span>
-                    <button
-                      className="featured-event__favorite"
-                      type="button"
-                      disabled
-                      title="Favorites are coming later"
-                      aria-label="Favorite preview"
-                    >
-                      &#9825;
-                    </button>
                   </div>
                   <div className="featured-event__body">
                     <h3>{event.name || 'Untitled event'}</h3>
@@ -181,20 +273,20 @@ export function FeaturedEvents({ events, loading }) {
                     {event.time ? (
                       <p className="featured-event__time">{event.time}</p>
                     ) : null}
-                    {event.isVisionPreview ? (
-                      <span className="vision-preview-badge">Vision preview</span>
-                    ) : (
-                      <ProviderBadge
-                        source={event.source}
-                        href={ticketUrl}
-                        compact
-                        unavailable={!ticketUrl}
-                      />
-                    )}
+                    <span className="vision-preview-badge">Vision preview</span>
                   </div>
                 </article>
+              ) : (
+                <FeaturedEventCard
+                  event={event}
+                  index={index}
+                  key={
+                    event.id ||
+                    `${event.name || 'event'}-${event.date || ''}-${index}`
+                  }
+                />
               )
-            })}
+            )}
       </div>
       {realEvents.length === 0 && !loading ? (
         <p className="landing-vision-note">

@@ -18,7 +18,7 @@ function getAuthErrorMessage(error, mode) {
   return 'Authentication is temporarily unavailable. Please try again.'
 }
 
-function AuthModal({ initialMode = 'login', onClose }) {
+function AuthModal({ initialMode = 'login', message = '', onClose }) {
   const { login, register } = useAuth()
   const [mode, setMode] = useState(initialMode)
   const [email, setEmail] = useState('')
@@ -127,9 +127,10 @@ function AuthModal({ initialMode = 'login', onClose }) {
             {isRegister ? 'Create your account' : 'Welcome back'}
           </h2>
           <p id={descriptionId}>
-            {isRegister
-              ? 'Create an account to prepare your personalized SoundSpot experience.'
-              : 'Sign in to continue exploring live music with your account.'}
+            {message ||
+              (isRegister
+                ? 'Create an account to prepare your personalized SoundSpot experience.'
+                : 'Sign in to continue exploring live music with your account.')}
           </p>
         </div>
 
