@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 const GENRE_OPTIONS = [
-  { value: 'all', label: 'All styles' },
+  { value: 'all', label: 'All' },
   { value: 'electronic', label: 'Electronic' },
   { value: 'techno', label: 'Techno' },
   { value: 'house', label: 'House' },
@@ -18,17 +18,9 @@ const GENRE_OPTIONS = [
   { value: 'other', label: 'Other' },
 ]
 
-const SOURCE_OPTIONS = [
-  { value: 'all', label: 'All sources' },
-  { value: 'shotgun', label: 'Shotgun' },
-  { value: 'ticketmaster', label: 'Ticketmaster' },
-  { value: 'openagenda', label: 'OpenAgenda' },
-]
-
 const QUICK_FILTERS = [
   { value: 'tonight', label: 'Tonight', icon: 'moon' },
   { value: 'week', label: 'This week', icon: 'calendar' },
-  { value: 'month', label: 'This month', icon: 'calendar-range' },
   { value: 'concerts', label: 'Concerts', icon: 'music' },
   { value: 'clubs', label: 'Clubs', icon: 'disc' },
   { value: 'festivals', label: 'Festivals', icon: 'ticket' },
@@ -82,10 +74,19 @@ function QuickFilterIcon({ name }) {
   )
 }
 
-function FilterSelect({ value, options, ariaLabel, onChange, className = '' }) {
+function FilterSelect({
+  value,
+  options,
+  ariaLabel,
+  onChange,
+  className = '',
+  triggerLabel = '',
+}) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef(null)
   const selectedOption = options.find((option) => option.value === value) || options[0]
+  const displayLabel =
+    value === 'all' && triggerLabel ? triggerLabel : selectedOption.label
 
   useEffect(() => {
     if (!open) return undefined
@@ -124,7 +125,7 @@ function FilterSelect({ value, options, ariaLabel, onChange, className = '' }) {
         aria-expanded={open}
         onClick={() => setOpen((isOpen) => !isOpen)}
       >
-        <span className="filter-select__value">{selectedOption.label}</span>
+        <span className="filter-select__value">{displayLabel}</span>
         <span className="filter-select__chevron" aria-hidden="true" />
       </button>
       {open ? (
@@ -153,87 +154,158 @@ function FilterSelect({ value, options, ariaLabel, onChange, className = '' }) {
   )
 }
 
+function formatDateRangeLabel(dateFrom, dateTo) {
+  if (dateFrom && dateTo) return `${dateFrom.slice(5)} - ${dateTo.slice(5)}`
+  if (dateFrom) return `From ${dateFrom.slice(5)}`
+  if (dateTo) return `Until ${dateTo.slice(5)}`
+  return 'Date'
+}
+
+function DateRangeFilter({ dateFrom, dateTo, onDateFromChange, onDateToChange }) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef(null)
+  const hasDateFilter = Boolean(dateFrom || dateTo)
+
+  useEffect(() => {
+    if (!open) return undefined
+
+    function handlePointerDown(event) {
+      if (rootRef.current && !rootRef.current.contains(event.target)) {
+        setOpen(false)
+      }
+    }
+
+    function handleKeyDown(event) {
+      if (event.key === 'Escape') {
+        setOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handlePointerDown)
+    document.addEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [open])
+
+  return (
+    <div
+      ref={rootRef}
+      className={`date-filter ${open ? 'is-open' : ''} ${
+        hasDateFilter ? 'is-active' : ''
+      }`.trim()}
+    >
+      <button
+        type="button"
+        className="date-filter__trigger event-filters__quick-filter"
+        aria-label="Filter by date range"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-pressed={hasDateFilter}
+        onClick={() => setOpen((isOpen) => !isOpen)}
+      >
+        <QuickFilterIcon name="calendar-range" />
+        {formatDateRangeLabel(dateFrom, dateTo)}
+      </button>
+      {open ? (
+        <div className="date-filter__popover" role="dialog" aria-label="Date range">
+          <label>
+            <span>From</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => onDateFromChange(event.target.value)}
+            />
+          </label>
+          <label>
+            <span>To</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => onDateToChange(event.target.value)}
+            />
+          </label>
+          <div className="date-filter__actions">
+            <button
+              type="button"
+              onClick={() => {
+                onDateFromChange('')
+                onDateToChange('')
+              }}
+            >
+              Clear
+            </button>
+            <button type="button" onClick={() => setOpen(false)}>
+              Apply
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
 function EventFilters({
   selectedGenre,
-  selectedSource,
   dateFrom,
   dateTo,
   activeQuickFilter,
+  eventViewMode,
   onGenreChange,
-  onSourceChange,
   onDateFromChange,
   onDateToChange,
   onQuickFilter,
   onReset,
+  onEventViewModeChange,
 }) {
   const hasActiveFilters =
     selectedGenre !== 'all' ||
-    selectedSource !== 'all' ||
     dateFrom ||
     dateTo ||
     activeQuickFilter
+  const scheduleFilters = QUICK_FILTERS.slice(0, 2)
+  const categoryFilters = QUICK_FILTERS.slice(2)
+
+  function renderQuickFilter(filter) {
+    const isActive = activeQuickFilter === filter.value
+
+    return (
+      <button
+        key={filter.value}
+        className={`event-filters__quick-filter ${
+          isActive ? 'is-active' : ''
+        }`.trim()}
+        type="button"
+        aria-pressed={isActive}
+        onClick={() => onQuickFilter(filter.value)}
+      >
+        <QuickFilterIcon name={filter.icon} />
+        {filter.label}
+      </button>
+    )
+  }
+
   return (
     <section className="event-filters" aria-label="Filter events">
       <div className="event-filters__quick-list" aria-label="Quick filters">
-        {QUICK_FILTERS.map((filter) => {
-          const isActive = activeQuickFilter === filter.value
-
-          return (
-            <button
-              key={filter.value}
-              className={`event-filters__quick-filter ${
-                isActive ? 'is-active' : ''
-              }`.trim()}
-              type="button"
-              aria-pressed={isActive}
-              onClick={() => onQuickFilter(filter.value)}
-            >
-              <QuickFilterIcon name={filter.icon} />
-              {filter.label}
-            </button>
-          )
-        })}
-      </div>
-
-      <div className="event-filters__bar">
+        {scheduleFilters.map(renderQuickFilter)}
+        <DateRangeFilter
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onDateFromChange={onDateFromChange}
+          onDateToChange={onDateToChange}
+        />
+        {categoryFilters.map(renderQuickFilter)}
         <FilterSelect
           className="event-filters__control--style"
           value={selectedGenre}
           options={GENRE_OPTIONS}
           ariaLabel="Genre or style"
+          triggerLabel="Style"
           onChange={onGenreChange}
         />
-
-        <FilterSelect
-          className="event-filters__control--source"
-          value={selectedSource}
-          options={SOURCE_OPTIONS}
-          ariaLabel="Event source"
-          onChange={onSourceChange}
-        />
-
-        <label className="event-filters__date-field">
-          <span className="visually-hidden">Date from</span>
-          <input
-            className="event-filters__control event-filters__control--date"
-            type="date"
-            value={dateFrom}
-            aria-label="Date from"
-            onChange={(event) => onDateFromChange(event.target.value)}
-          />
-        </label>
-
-        <label className="event-filters__date-field">
-          <span className="visually-hidden">Date to</span>
-          <input
-            className="event-filters__control event-filters__control--date"
-            type="date"
-            value={dateTo}
-            aria-label="Date to"
-            onChange={(event) => onDateToChange(event.target.value)}
-          />
-        </label>
-
         <button
           className="event-filters__reset"
           type="button"
@@ -241,6 +313,28 @@ function EventFilters({
           disabled={!hasActiveFilters}
         >
           Reset
+        </button>
+      </div>
+      <div
+        className="map-showcase__view-toggle"
+        role="group"
+        aria-label="Event view"
+      >
+        <button
+          className={eventViewMode === 'map' ? 'is-active' : ''}
+          type="button"
+          aria-pressed={eventViewMode === 'map'}
+          onClick={() => onEventViewModeChange('map')}
+        >
+          Map
+        </button>
+        <button
+          className={eventViewMode === 'list' ? 'is-active' : ''}
+          type="button"
+          aria-pressed={eventViewMode === 'list'}
+          onClick={() => onEventViewModeChange('list')}
+        >
+          List
         </button>
       </div>
     </section>

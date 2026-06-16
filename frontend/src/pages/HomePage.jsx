@@ -23,7 +23,6 @@ import { getDiscoveryEvents, getEventsByArtist, getEventsByCity } from '../servi
 
 const EVENTS_PER_PAGE = 12
 const DEFAULT_GENRE_FILTER = 'all'
-const DEFAULT_SOURCE_FILTER = 'all'
 const DEFAULT_QUICK_FILTER = ''
 const DATE_QUICK_FILTERS = new Set(['tonight', 'week', 'month'])
 
@@ -118,6 +117,20 @@ function normalizeFilterText(value) {
     .toLowerCase()
 }
 
+function formatMapTitle(value) {
+  const normalizedValue = (value || '').trim()
+  if (!normalizedValue) return ''
+
+  if (normalizedValue !== normalizedValue.toLowerCase()) {
+    return normalizedValue
+  }
+
+  return normalizedValue.replace(/\S+/g, (word) => {
+    const [firstLetter, ...rest] = word
+    return `${firstLetter.toLocaleUpperCase()}${rest.join('')}`
+  })
+}
+
 function matchesCategoryQuickFilter(event, filter) {
   if (!filter) return true
 
@@ -162,14 +175,12 @@ function HomePage() {
   const [selectedEventDetails, setSelectedEventDetails] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedGenre, setSelectedGenre] = useState(DEFAULT_GENRE_FILTER)
-  const [selectedSource, setSelectedSource] = useState(DEFAULT_SOURCE_FILTER)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [activeQuickFilter, setActiveQuickFilter] = useState(DEFAULT_QUICK_FILTER)
   const activeEvents = hasSearched ? events : discoveryEvents
   const hasActiveFilters = Boolean(
     selectedGenre !== DEFAULT_GENRE_FILTER ||
-      selectedSource !== DEFAULT_SOURCE_FILTER ||
       dateFrom ||
       dateTo ||
       activeQuickFilter,
@@ -182,13 +193,9 @@ function HomePage() {
         const matchesGenre =
           selectedGenre === DEFAULT_GENRE_FILTER ||
           eventGenres.includes(selectedGenre)
-        const matchesSource =
-          selectedSource === DEFAULT_SOURCE_FILTER ||
-          (event.source || '').trim().toLowerCase() === selectedSource
 
         return (
           matchesGenre &&
-          matchesSource &&
           matchesDateRange(event.date, dateFrom, dateTo) &&
           matchesCategoryQuickFilter(
             event,
@@ -199,7 +206,6 @@ function HomePage() {
     [
       activeEvents,
       selectedGenre,
-      selectedSource,
       dateFrom,
       dateTo,
       activeQuickFilter,
@@ -212,14 +218,9 @@ function HomePage() {
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PER_PAGE))
   const mapLoading = hasSearched ? loading : discoveryLoading
   const listLoading = hasSearched ? loading : discoveryLoading
-  const mapTitle = hasSearched ? lastSearch.value : 'Explore the world'
-  const mapMicrocopy = hasSearched
-    ? loading
-      ? 'Searching events...'
-      : `${filteredEvents.length} ${
-          filteredEvents.length === 1 ? 'event' : 'events'
-        } found`
-    : 'Discover live music events from multiple sources'
+  const mapTitle = hasSearched
+    ? formatMapTitle(lastSearch.value)
+    : 'Explore the world'
   const featuredEvents = useMemo(
     () =>
       discoveryEvents
@@ -267,7 +268,6 @@ function HomePage() {
 
   function resetFilters() {
     setSelectedGenre(DEFAULT_GENRE_FILTER)
-    setSelectedSource(DEFAULT_SOURCE_FILTER)
     setDateFrom('')
     setDateTo('')
     setActiveQuickFilter(DEFAULT_QUICK_FILTER)
@@ -279,11 +279,6 @@ function HomePage() {
     if (activeQuickFilter && !DATE_QUICK_FILTERS.has(activeQuickFilter)) {
       setActiveQuickFilter(DEFAULT_QUICK_FILTER)
     }
-    setCurrentPage(1)
-  }
-
-  function handleSourceChange(value) {
-    setSelectedSource(value)
     setCurrentPage(1)
   }
 
@@ -439,48 +434,23 @@ function HomePage() {
             aria-labelledby="map-showcase-title"
           >
             <div className="content-panel content-panel--map">
-              <div className="map-showcase__toolbar">
-                <div className="map-showcase__title">
-                  <h2 id="map-showcase-title">{mapTitle}</h2>
-                  <p className="map-showcase__microcopy" aria-live="polite">
-                    {mapMicrocopy}
-                  </p>
-                </div>
-                <div
-                  className="map-showcase__view-toggle"
-                  role="group"
-                  aria-label="Event view"
-                >
-                  <button
-                    className={eventViewMode === 'map' ? 'is-active' : ''}
-                    type="button"
-                    aria-pressed={eventViewMode === 'map'}
-                    onClick={() => setEventViewMode('map')}
-                  >
-                    Map
-                  </button>
-                  <button
-                    className={eventViewMode === 'list' ? 'is-active' : ''}
-                    type="button"
-                    aria-pressed={eventViewMode === 'list'}
-                    onClick={() => setEventViewMode('list')}
-                  >
-                    List
-                  </button>
-                </div>
+              <div className="map-showcase-title-wrap">
+                <h2 className="map-showcase-title" id="map-showcase-title">
+                  <span>{mapTitle}</span>
+                </h2>
               </div>
               <EventFilters
                 selectedGenre={selectedGenre}
-                selectedSource={selectedSource}
                 dateFrom={dateFrom}
                 dateTo={dateTo}
                 activeQuickFilter={activeQuickFilter}
+                eventViewMode={eventViewMode}
                 onGenreChange={handleGenreChange}
-                onSourceChange={handleSourceChange}
                 onDateFromChange={handleDateFromChange}
                 onDateToChange={handleDateToChange}
                 onQuickFilter={handleQuickFilter}
                 onReset={resetFilters}
+                onEventViewModeChange={setEventViewMode}
               />
               {eventViewMode === 'map' ? (
                 <MapPreview
