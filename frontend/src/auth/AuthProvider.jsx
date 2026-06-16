@@ -1,47 +1,67 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getCurrentUser,
   loginUser,
   logoutUser,
   registerUser,
 } from '../services/api'
+import AuthModal from '../components/AuthModal'
 import { AuthContext } from './AuthContext'
 
 function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [isAuthLoading, setIsAuthLoading] = useState(true)
+  const [authModal, setAuthModal] = useState(null)
+  const authRequestVersion = useRef(0)
 
   const refreshCurrentUser = useCallback(async () => {
+    const requestVersion = authRequestVersion.current + 1
+    authRequestVersion.current = requestVersion
     setIsAuthLoading(true)
 
     try {
       const currentUser = await getCurrentUser()
-      setUser(currentUser)
+      if (authRequestVersion.current === requestVersion) {
+        setUser(currentUser)
+      }
       return currentUser
     } catch (error) {
       if (error?.status === 401) {
-        setUser(null)
+        if (authRequestVersion.current === requestVersion) {
+          setUser(null)
+        }
         return null
       }
-      setUser(null)
+      if (authRequestVersion.current === requestVersion) {
+        setUser(null)
+      }
       throw error
     } finally {
-      setIsAuthLoading(false)
+      if (authRequestVersion.current === requestVersion) {
+        setIsAuthLoading(false)
+      }
     }
   }, [])
 
   useEffect(() => {
     let ignore = false
+    const requestVersion = authRequestVersion.current
 
     getCurrentUser()
       .then((currentUser) => {
-        if (!ignore) setUser(currentUser)
+        if (!ignore && authRequestVersion.current === requestVersion) {
+          setUser(currentUser)
+        }
       })
       .catch(() => {
-        if (!ignore) setUser(null)
+        if (!ignore && authRequestVersion.current === requestVersion) {
+          setUser(null)
+        }
       })
       .finally(() => {
-        if (!ignore) setIsAuthLoading(false)
+        if (!ignore && authRequestVersion.current === requestVersion) {
+          setIsAuthLoading(false)
+        }
       })
 
     return () => {
@@ -51,19 +71,33 @@ function AuthProvider({ children }) {
 
   const login = useCallback(async (payload) => {
     const response = await loginUser(payload)
+    authRequestVersion.current += 1
     setUser(response.user)
+    setIsAuthLoading(false)
     return response.user
   }, [])
 
   const register = useCallback(async (payload) => {
     const response = await registerUser(payload)
+    authRequestVersion.current += 1
     setUser(response.user)
+    setIsAuthLoading(false)
     return response.user
   }, [])
 
   const logout = useCallback(async () => {
     await logoutUser()
+    authRequestVersion.current += 1
     setUser(null)
+    setIsAuthLoading(false)
+  }, [])
+
+  const openAuthModal = useCallback((mode = 'login', message = '') => {
+    setAuthModal({ mode, message })
+  }, [])
+
+  const closeAuthModal = useCallback(() => {
+    setAuthModal(null)
   }, [])
 
   const value = useMemo(
@@ -75,6 +109,8 @@ function AuthProvider({ children }) {
       register,
       logout,
       refreshCurrentUser,
+      openAuthModal,
+      closeAuthModal,
     }),
     [
       user,
@@ -83,10 +119,23 @@ function AuthProvider({ children }) {
       register,
       logout,
       refreshCurrentUser,
+      openAuthModal,
+      closeAuthModal,
     ],
   )
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      {authModal ? (
+        <AuthModal
+          initialMode={authModal.mode}
+          message={authModal.message}
+          onClose={closeAuthModal}
+        />
+      ) : null}
+    </AuthContext.Provider>
+  )
 }
 
 export default AuthProvider

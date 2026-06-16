@@ -1,20 +1,35 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import logo from '../assets/soundspot-logo.png'
-import AuthModal from './AuthModal'
 
-function AppNavbar() {
-  const { user, isAuthenticated, isAuthLoading, logout } = useAuth()
-  const [authMode, setAuthMode] = useState(null)
+function AppNavbar({
+  activeView = 'home',
+  onShowFavorites,
+  onExplore,
+  onLogoutSuccess,
+}) {
+  const {
+    user,
+    isAuthenticated,
+    isAuthLoading,
+    logout,
+    openAuthModal,
+  } = useAuth()
   const [isLoggingOut, setIsLoggingOut] = useState(false)
   const [logoutError, setLogoutError] = useState('')
-  const closeAuthModal = useCallback(() => setAuthMode(null), [])
+
+  function handleHomeAnchor(event, targetId) {
+    if (activeView !== 'favorites') return
+    event.preventDefault()
+    onExplore(targetId)
+  }
 
   async function handleLogout() {
     setLogoutError('')
     setIsLoggingOut(true)
     try {
       await logout()
+      onLogoutSuccess?.()
     } catch {
       setLogoutError('Sign out failed')
     } finally {
@@ -23,19 +38,43 @@ function AppNavbar() {
   }
 
   return (
-    <>
-      <header className="app-navbar">
-        <div className="app-navbar__inner">
-          <a className="app-navbar__brand" href="#explore" aria-label="SoundSpot home">
+    <header className="app-navbar">
+      <div className="app-navbar__inner">
+          <a
+            className="app-navbar__brand"
+            href="#explore"
+            aria-label="SoundSpot home"
+            onClick={(event) => handleHomeAnchor(event, 'explore')}
+          >
             <img className="app-navbar__logo" src={logo} alt="SoundSpot" />
             <span className="app-navbar__tagline">Explore live music around the world</span>
           </a>
 
           <nav className="app-navbar__nav" aria-label="Primary navigation">
-            <a href="#explore-map">Explore</a>
-            <a href="#how-it-works">How it works</a>
-            <a href="#sources">Sources</a>
-            <a href="#about">About</a>
+            <a
+              href="#explore-map"
+              onClick={(event) => handleHomeAnchor(event, 'explore-map')}
+            >
+              Explore
+            </a>
+            <a
+              href="#how-it-works"
+              onClick={(event) => handleHomeAnchor(event, 'how-it-works')}
+            >
+              How it works
+            </a>
+            <a
+              href="#sources"
+              onClick={(event) => handleHomeAnchor(event, 'sources')}
+            >
+              Sources
+            </a>
+            <a
+              href="#about"
+              onClick={(event) => handleHomeAnchor(event, 'about')}
+            >
+              About
+            </a>
             <a
               href="https://github.com/BucKz96/SoundSpot"
               target="_blank"
@@ -63,6 +102,17 @@ function AppNavbar() {
                   </span>
                 ) : null}
                 <button
+                  className={
+                    activeView === 'favorites'
+                      ? 'app-navbar__view-button is-active'
+                      : 'app-navbar__view-button'
+                  }
+                  type="button"
+                  onClick={onShowFavorites}
+                >
+                  My favorites
+                </button>
+                <button
                   className="app-navbar__logout"
                   type="button"
                   onClick={handleLogout}
@@ -70,33 +120,31 @@ function AppNavbar() {
                 >
                   {isLoggingOut ? 'Signing out...' : 'Logout'}
                 </button>
-                <a href="#explore-map">Explore events</a>
+                <button
+                  className="app-navbar__primary-action"
+                  type="button"
+                  onClick={onExplore}
+                >
+                  Explore events
+                </button>
               </>
             ) : (
               <>
-                <button type="button" onClick={() => setAuthMode('login')}>
+                <button type="button" onClick={() => openAuthModal('login')}>
                   Sign in
                 </button>
                 <button
                   className="app-navbar__primary-action"
                   type="button"
-                  onClick={() => setAuthMode('register')}
+                  onClick={() => openAuthModal('register')}
                 >
                   Get started
                 </button>
               </>
             )}
           </div>
-        </div>
-      </header>
-
-      {authMode ? (
-        <AuthModal
-          initialMode={authMode}
-          onClose={closeAuthModal}
-        />
-      ) : null}
-    </>
+      </div>
+    </header>
   )
 }
 

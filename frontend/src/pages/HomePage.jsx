@@ -4,6 +4,7 @@ import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
 import EventFilters from '../components/EventFilters'
+import FavoritesView from '../components/FavoritesView'
 import {
   AboutSoundSpot,
   AppFooter,
@@ -16,6 +17,7 @@ import {
 } from '../components/LandingSections'
 import { productBenefits } from '../data/landingData'
 import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../auth/useAuth'
 import { getDiscoveryEvents, getEventsByArtist, getEventsByCity } from '../services/api'
 
 const EVENTS_PER_PAGE = 12
@@ -145,6 +147,8 @@ function matchesCategoryQuickFilter(event, filter) {
 }
 
 function HomePage() {
+  const { isAuthenticated } = useAuth()
+  const [activeView, setActiveView] = useState('home')
   const [events, setEvents] = useState([])
   const [discoveryEvents, setDiscoveryEvents] = useState([])
   const [discoveryLoading, setDiscoveryLoading] = useState(true)
@@ -364,10 +368,37 @@ function HomePage() {
     }
   }
 
+  function showExplore(targetId = 'explore-map') {
+    const resolvedTargetId =
+      typeof targetId === 'string' ? targetId : 'explore-map'
+    setActiveView('home')
+    window.requestAnimationFrame(() => {
+      document.getElementById(resolvedTargetId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+  }
+
+  function showHomeTop() {
+    setActiveView('home')
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  }
+
   return (
     <div className="app-page">
-      <AppNavbar />
-      <main className="home-page" id="main-content">
+      <AppNavbar
+        activeView={isAuthenticated ? activeView : 'home'}
+        onShowFavorites={() => setActiveView('favorites')}
+        onExplore={showExplore}
+        onLogoutSuccess={showHomeTop}
+      />
+      {activeView === 'favorites' && isAuthenticated ? (
+        <FavoritesView onExplore={showExplore} />
+      ) : (
+        <main className="home-page" id="main-content">
         <section className="home-main-inner explore-section" id="explore">
           <SiteHeader
             title={
@@ -481,7 +512,8 @@ function HomePage() {
         <SourcesStrip />
         <AboutSoundSpot />
         <FinalCTA />
-      </main>
+        </main>
+      )}
 
       <AppFooter />
     </div>
