@@ -24,6 +24,15 @@ function AppNavbar({
     onExplore(targetId)
   }
 
+  function handleExploreAction() {
+    if (onExplore) {
+      onExplore()
+      return
+    }
+
+    window.location.href = '/#explore-map'
+  }
+
   async function handleLogout() {
     setLogoutError('')
     setIsLoggingOut(true)
@@ -42,7 +51,7 @@ function AppNavbar({
       <div className="app-navbar__inner">
           <a
             className="app-navbar__brand"
-            href="#explore"
+            href="/"
             aria-label="SoundSpot home"
             onClick={(event) => handleHomeAnchor(event, 'explore')}
           >
@@ -52,26 +61,25 @@ function AppNavbar({
 
           <nav className="app-navbar__nav" aria-label="Primary navigation">
             <a
-              href="#explore-map"
+              href="/#explore-map"
               onClick={(event) => handleHomeAnchor(event, 'explore-map')}
             >
               Explore
             </a>
             <a
-              href="#how-it-works"
+              href="/#how-it-works"
               onClick={(event) => handleHomeAnchor(event, 'how-it-works')}
             >
               How it works
             </a>
             <a
-              href="#sources"
+              href="/#sources"
               onClick={(event) => handleHomeAnchor(event, 'sources')}
             >
               Sources
             </a>
             <a
-              href="#about"
-              onClick={(event) => handleHomeAnchor(event, 'about')}
+              href="/about"
             >
               About
             </a>
@@ -123,7 +131,7 @@ function AppNavbar({
                 <button
                   className="app-navbar__primary-action"
                   type="button"
-                  onClick={onExplore}
+                  onClick={handleExploreAction}
                 >
                   Explore events
                 </button>

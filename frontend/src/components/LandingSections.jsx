@@ -430,22 +430,16 @@ export function AppFooter() {
       <div className="product-footer__links">
         <div>
           <h2>Product</h2>
-          <a href="#explore">Explore</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#sources">Sources</a>
+          <a href="/#explore">Explore</a>
+          <a href="/#how-it-works">How it works</a>
+          <a href="/#sources">Sources</a>
         </div>
         <div>
           <h2>Company</h2>
-          <a href="#about">About</a>
-          <a
-            href="https://github.com/BucKz96/SoundSpot/issues"
-            target="_blank"
-            rel="noreferrer"
-          >
-            Contact
-          </a>
-          <span>Privacy Policy</span>
-          <span>Terms of Service</span>
+          <a href="/about">About</a>
+          <a href="/contact">Contact</a>
+          <a href="/privacy">Privacy Policy</a>
+          <a href="/legal">Terms of Service</a>
         </div>
         <div>
           <h2>Community</h2>
