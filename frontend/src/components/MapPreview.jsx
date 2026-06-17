@@ -9,6 +9,7 @@ import {
 } from 'react-leaflet'
 import { groupEventsByVenue } from '../utils/eventGrouping'
 import ProviderBadge from './ProviderBadge'
+import useEventFavoriteAction from './useEventFavoriteAction'
 
 const DEFAULT_CENTER = [20, 10]
 const DEFAULT_ZOOM = 2
@@ -103,6 +104,55 @@ function getEventKey(event) {
     `${event.name || ''}|${event.date || ''}|${event.venue || ''}|${
       event.source || ''
     }`
+  )
+}
+
+function SidebarFavoriteButton({ event }) {
+  const {
+    favorite,
+    favoritePending,
+    favoriteError,
+    toggleFavorite,
+  } = useEventFavoriteAction(event)
+  const title = (event.name || '').trim() || 'Untitled event'
+  const favoriteLabel = favorite
+    ? `Remove ${title} from favorites`
+    : `Add ${title} to favorites`
+
+  return (
+    <div className="venue-group-panel__favorite-wrap">
+      <button
+        className={[
+          'venue-group-panel__favorite',
+          favorite ? 'is-favorite' : '',
+          favoritePending ? 'is-loading' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        type="button"
+        onClick={toggleFavorite}
+        disabled={favoritePending}
+        aria-pressed={favorite}
+        aria-label={favoritePending ? 'Updating favorite' : favoriteLabel}
+        title={
+          favoritePending
+            ? 'Updating favorite'
+            : favorite
+              ? 'Remove from favorites'
+              : 'Add to favorites'
+        }
+      >
+        <span className="venue-group-panel__favorite-spinner" aria-hidden="true" />
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 20.6 3.8 13A5.4 5.4 0 0 1 11.4 5.3l.6.7.6-.7a5.4 5.4 0 0 1 7.6 7.7L12 20.6Z" />
+        </svg>
+      </button>
+      {favoriteError ? (
+        <p className="venue-group-panel__favorite-error" role="alert">
+          {favoriteError}
+        </p>
+      ) : null}
+    </div>
   )
 }
 
@@ -620,6 +670,7 @@ function MapEventsPanel({
                   {(event.city || '').trim() || 'City unavailable'}
                 </p>
               </button>
+              <SidebarFavoriteButton event={event} />
               <ProviderBadge
                 source={event.source}
                 href={eventUrl}
