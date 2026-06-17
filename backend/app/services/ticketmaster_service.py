@@ -85,6 +85,29 @@ def _extract_ticketmaster_genre_values(raw: dict) -> list[str]:
     return values
 
 
+def _extract_ticketmaster_image_url(raw: dict) -> str:
+    images = raw.get("images") or []
+    if not isinstance(images, list):
+        return ""
+
+    valid_images = [
+        image
+        for image in images
+        if isinstance(image, dict) and isinstance(image.get("url"), str)
+    ]
+    if not valid_images:
+        return ""
+
+    best_image = max(
+        valid_images,
+        key=lambda image: (
+            int(image.get("width") or 0) * int(image.get("height") or 0),
+            int(image.get("width") or 0),
+        ),
+    )
+    return best_image.get("url", "").strip()
+
+
 async def _resolve_event_coordinates(
     latitude: float,
     longitude: float,
@@ -146,6 +169,7 @@ async def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
         latitude=latitude,
         longitude=longitude,
         ticket_url=raw.get("url") or "",
+        image_url=_extract_ticketmaster_image_url(raw),
         is_location_approximate=is_location_approximate,
         source="ticketmaster",
         genres=normalize_genres(_extract_ticketmaster_genre_values(raw)),

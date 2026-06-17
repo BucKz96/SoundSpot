@@ -7,6 +7,7 @@ import {
   TileLayer,
   useMap,
 } from 'react-leaflet'
+import { getEventImageUrl } from '../utils/eventDisplay'
 import { groupEventsByVenue } from '../utils/eventGrouping'
 import ProviderBadge from './ProviderBadge'
 import useEventFavoriteAction from './useEventFavoriteAction'
@@ -63,19 +64,8 @@ function formatEventTime(event) {
   return date || time || 'Date TBA'
 }
 
-function getEventImage(event) {
-  return (
-    event.image_url ||
-    event.image ||
-    event.imageUrl ||
-    event.thumbnail_url ||
-    event.thumbnail ||
-    ''
-  )
-}
-
 function EventThumbnail({ event }) {
-  const imageUrl = getEventImage(event)
+  const imageUrl = getEventImageUrl(event)
   const [failedImageUrl, setFailedImageUrl] = useState('')
   const showImage = Boolean(imageUrl) && failedImageUrl !== imageUrl
 

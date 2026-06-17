@@ -108,6 +108,105 @@ def _extract_shotgun_genre_values(event: dict[str, Any]) -> list[str]:
     ]
 
 
+def _is_image_url(value: str) -> bool:
+    normalized_value = value.strip().lower()
+    return normalized_value.startswith(("http://", "https://", "//"))
+
+
+IMAGE_URL_KEYS = (
+    "url",
+    "src",
+    "href",
+    "imageUrl",
+    "image_url",
+    "coverUrl",
+    "cover_url",
+    "thumbnailUrl",
+    "thumbnail_url",
+    "posterUrl",
+    "poster_url",
+    "artworkUrl",
+    "artwork_url",
+    "pictureUrl",
+    "picture_url",
+    "eventImage",
+    "event_image",
+    "visualUrl",
+    "visual_url",
+    "bannerUrl",
+    "banner_url",
+    "logoUrl",
+    "logo_url",
+    "original",
+    "large",
+    "medium",
+    "small",
+    "thumbnail",
+)
+IMAGE_CONTAINER_KEYS = (
+    "image",
+    "images",
+    "cover",
+    "coverImage",
+    "thumbnailUrl",
+    "thumbnail",
+    "poster",
+    "artwork",
+    "visual",
+    "visuals",
+    "picture",
+    "eventImage",
+    "event_image",
+    "media",
+    "attachments",
+    "logo",
+    "banner",
+)
+ROOT_IMAGE_KEYS = tuple(
+    key
+    for key in (*IMAGE_URL_KEYS, *IMAGE_CONTAINER_KEYS)
+    if key not in {"url", "src", "href"}
+)
+
+
+def _collect_image_urls(value: Any) -> list[str]:
+    if isinstance(value, str):
+        return [value.strip()] if _is_image_url(value) else []
+
+    if isinstance(value, list):
+        urls: list[str] = []
+        for item in value:
+            urls.extend(_collect_image_urls(item))
+        return urls
+
+    if not isinstance(value, dict):
+        return []
+
+    urls: list[str] = []
+    for key in IMAGE_URL_KEYS:
+        image_url = value.get(key)
+        if isinstance(image_url, str) and _is_image_url(image_url):
+            urls.append(image_url.strip())
+
+    for key in IMAGE_CONTAINER_KEYS:
+        urls.extend(_collect_image_urls(value.get(key)))
+
+    return urls
+
+
+def _extract_shotgun_image_url(event: dict[str, Any]) -> str | None:
+    image_urls: list[str] = []
+    for key in ROOT_IMAGE_KEYS:
+        if key in event:
+            image_urls.extend(_collect_image_urls(event.get(key)))
+
+    unique_image_urls = list(dict.fromkeys(image_urls))
+    if not unique_image_urls:
+        return None
+
+    return max(unique_image_urls, key=len)
+
+
 def _extract_artist(event: dict[str, Any]) -> str:
     artists = event.get("eventArtists") or []
     if isinstance(artists, list):
@@ -196,6 +295,7 @@ def _shotgun_event_to_response(event: dict[str, Any]) -> EventResponse:
         latitude=latitude,
         longitude=longitude,
         ticket_url=event.get("url") or "",
+        image_url=_extract_shotgun_image_url(event),
         is_location_approximate=is_location_approximate,
         source="shotgun",
         genres=normalize_genres(_extract_shotgun_genre_values(event)),

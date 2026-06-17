@@ -5,6 +5,7 @@ import {
   deleteEventFavorite,
   getEventFavorites,
 } from '../services/api'
+import { getEventImageUrl } from '../utils/eventDisplay'
 import { FavoritesContext } from './FavoritesContext'
 
 const EMPTY_FAVORITES = []
@@ -21,14 +22,6 @@ function getFavoriteKey(event) {
   const source = normalizeValue(event?.source).toLocaleLowerCase()
   const eventId = getEventId(event)
   return source && eventId ? `${source}:${eventId}` : ''
-}
-
-function getEventImageUrl(event) {
-  return normalizeValue(
-    event?.image_url ||
-      event?.image ||
-      event?.images?.[0]?.url,
-  )
 }
 
 function toFavoritePayload(event) {

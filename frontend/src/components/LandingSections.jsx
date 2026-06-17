@@ -2,23 +2,10 @@ import { useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import logo from '../assets/soundspot-logo.png'
 import { howItWorksSteps } from '../data/landingData'
-import {
-  mockFeaturedEvents,
-  mockFutureSources,
-  mockTrendingCities,
-} from '../data/landingMockData'
+import { mockFutureSources } from '../data/landingMockData'
 import { useFavorites } from '../favorites/useFavorites'
+import { getEventImageUrl } from '../utils/eventDisplay'
 import ProviderBadge from './ProviderBadge'
-
-function getEventImage(event) {
-  return (
-    event.image_url ||
-    event.image ||
-    event.thumbnail_url ||
-    event.thumbnail ||
-    ''
-  )
-}
 
 function formatFeaturedDate(value) {
   if (!value) return 'Date TBA'
@@ -50,8 +37,15 @@ export function ProductBenefits({ benefits }) {
   )
 }
 
-export function TrendingCities({ onCitySelect }) {
-  const highestCount = Math.max(...mockTrendingCities.map((city) => city.count))
+export function TrendingCities({
+  activeCity = '',
+  cities = [],
+  loading = false,
+  onCitySelect,
+  onResetCity,
+}) {
+  const highestCount = Math.max(...cities.map((city) => city.count), 0)
+  const tones = ['cyan', 'violet', 'magenta', 'cyan', 'violet']
 
   return (
     <section
@@ -63,44 +57,62 @@ export function TrendingCities({ onCitySelect }) {
           <p className="section-kicker">City discovery</p>
           <h2 id="trending-cities-title">Trending cities</h2>
         </div>
-        <button
-          className="landing-section__view-all"
-          type="button"
-          disabled
-          title="Expanded city discovery is coming later"
-        >
-          View all
-        </button>
-      </div>
-      <div className="trending-cities">
-        {mockTrendingCities.map((city, index) => (
+        {activeCity ? (
           <button
-            key={city.name}
-            className={`trending-city trending-city--${city.tone}`}
+            className="landing-section__reset"
             type="button"
-            onClick={() => onCitySelect(city.name)}
+            onClick={onResetCity}
+            aria-label={`Reset city filter for ${activeCity}`}
           >
-            <strong className="trending-city__rank">{index + 1}</strong>
-            <span
-              className="trending-city__visual"
+            Reset
+          </button>
+        ) : null}
+      </div>
+      {loading ? (
+        <div className="trending-cities">
+          {Array.from({ length: 5 }, (_, index) => (
+            <div
+              className="trending-city trending-city--loading"
+              key={index}
               aria-hidden="true"
             />
-            <span className="trending-city__content">
-              <span>
-                <strong>{city.name}</strong>
-                <small>{city.country}</small>
+          ))}
+        </div>
+      ) : cities.length > 0 ? (
+        <div className="trending-cities">
+          {cities.map((city, index) => (
+            <button
+              key={`${city.name}-${city.country || 'unknown'}`}
+              className={`trending-city trending-city--${tones[index % tones.length]}`}
+              type="button"
+              onClick={() => onCitySelect(city.name)}
+            >
+              <strong className="trending-city__rank">{index + 1}</strong>
+              <span className="trending-city__visual" aria-hidden="true" />
+              <span className="trending-city__content">
+                <span>
+                  <strong>{city.name}</strong>
+                  {city.country ? <small>{city.country}</small> : null}
+                </span>
+                <span className="trending-city__count">
+                  {city.count} event{city.count === 1 ? '' : 's'}
+                </span>
+                <span className="trending-city__progress" aria-hidden="true">
+                  <i
+                    style={{
+                      width: `${highestCount > 0 ? (city.count / highestCount) * 100 : 0}%`,
+                    }}
+                  />
+                </span>
               </span>
-              <span className="trending-city__count">
-                {city.count.toLocaleString('en-US')} events
-              </span>
-              <span className="trending-city__progress" aria-hidden="true">
-                <i style={{ width: `${(city.count / highestCount) * 100}%` }} />
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
-      <p className="landing-vision-note">Preview data for product direction.</p>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className="landing-section__empty">
+          No city trends available from the current events.
+        </p>
+      )}
     </section>
   )
 }
@@ -118,7 +130,7 @@ function FeaturedEventCard({ event, index }) {
     isFavoritePending,
   } = useFavorites()
   const [favoriteError, setFavoriteError] = useState('')
-  const image = getEventImage(event)
+  const image = getEventImageUrl(event)
   const ticketUrl = (event.ticket_url || '').trim()
   const favorite = isFavorite(event)
   const favoritePending = isFavoritePending(event)
@@ -159,10 +171,15 @@ function FeaturedEventCard({ event, index }) {
         event.tone || ['violet', 'cyan', 'magenta', 'blue'][index % 4]
       }`}
     >
-      <div
-        className={`featured-event__visual ${image ? 'has-image' : ''}`.trim()}
-        style={image ? { backgroundImage: `url("${image}")` } : undefined}
-      >
+      <div className={`featured-event__visual ${image ? 'has-image' : ''}`.trim()}>
+        {image ? (
+          <img
+            className="featured-event__image"
+            src={image}
+            alt=""
+            loading="lazy"
+          />
+        ) : null}
         <span>{formatFeaturedDate(event.date)}</span>
         <button
           className={[
@@ -214,12 +231,6 @@ function FeaturedEventCard({ event, index }) {
 
 export function FeaturedEvents({ events, loading }) {
   const realEvents = events.slice(0, 3)
-  const displayEvents =
-    realEvents.length > 0
-      ? realEvents
-      : mockFeaturedEvents
-          .slice(0, 3)
-          .map((event) => ({ ...event, isVisionPreview: true }))
 
   return (
     <section
@@ -231,14 +242,6 @@ export function FeaturedEvents({ events, loading }) {
           <p className="section-kicker">From the discovery map</p>
           <h2 id="featured-events-title">Featured events</h2>
         </div>
-        <button
-          className="landing-section__view-all"
-          type="button"
-          disabled
-          title="Expanded featured events are coming later"
-        >
-          View all
-        </button>
       </div>
       <div className="featured-events">
         {loading
@@ -249,50 +252,23 @@ export function FeaturedEvents({ events, loading }) {
                 aria-hidden="true"
               />
             ))
-          : displayEvents.map((event, index) =>
-              event.isVisionPreview ? (
-                <article
-                  className={`featured-event featured-event--${
-                    event.tone || ['violet', 'cyan', 'magenta', 'blue'][index % 4]
-                  }`}
-                  key={
-                    event.id ||
-                    `${event.name || 'event'}-${event.date || ''}-${index}`
-                  }
-                >
-                  <div className="featured-event__visual">
-                    <span>{formatFeaturedDate(event.date)}</span>
-                  </div>
-                  <div className="featured-event__body">
-                    <h3>{event.name || 'Untitled event'}</h3>
-                    <p>
-                      {(event.venue || '').trim() || 'Venue TBA'}
-                      <span aria-hidden="true"> / </span>
-                      {(event.city || '').trim() || 'City TBA'}
-                    </p>
-                    {event.time ? (
-                      <p className="featured-event__time">{event.time}</p>
-                    ) : null}
-                    <span className="vision-preview-badge">Vision preview</span>
-                  </div>
-                </article>
-              ) : (
-                <FeaturedEventCard
-                  event={event}
-                  index={index}
-                  key={
-                    event.id ||
-                    `${event.name || 'event'}-${event.date || ''}-${index}`
-                  }
-                />
-              )
+          : realEvents.length > 0
+            ? realEvents.map((event, index) => (
+              <FeaturedEventCard
+                event={event}
+                index={index}
+                key={
+                  event.id ||
+                  `${event.name || 'event'}-${event.date || ''}-${index}`
+                }
+              />
+            ))
+            : (
+              <p className="landing-section__empty featured-events__empty">
+                No featured events available from the current discovery results.
+              </p>
             )}
       </div>
-      {realEvents.length === 0 && !loading ? (
-        <p className="landing-vision-note">
-          Preview events shown while discovery data is unavailable.
-        </p>
-      ) : null}
     </section>
   )
 }
