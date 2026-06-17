@@ -20,6 +20,7 @@ import { productBenefits } from '../data/landingData'
 import { useEffect, useMemo, useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import { getDiscoveryEvents, getEventsByArtist, getEventsByCity } from '../services/api'
+import { buildFeaturedEvents, buildTrendingCities } from '../utils/eventDisplay'
 
 const EVENTS_PER_PAGE = 12
 const DEFAULT_GENRE_FILTER = 'all'
@@ -254,12 +255,15 @@ function HomePage() {
   const mapTitle = hasSearched
     ? formatMapTitle(lastSearch.value)
     : 'Explore the world'
+  const activeTrendingCity =
+    hasSearched && lastSearch.type === 'city' ? lastSearch.value : ''
+  const trendingCities = useMemo(
+    () => buildTrendingCities(filteredEvents),
+    [filteredEvents],
+  )
   const featuredEvents = useMemo(
-    () =>
-      discoveryEvents
-        .filter((event) => event?.name && event?.date)
-        .slice(0, 3),
-    [discoveryEvents],
+    () => buildFeaturedEvents(filteredEvents),
+    [filteredEvents],
   )
   const emptyEventsMessage =
     activeEvents.length > 0 && filteredEvents.length === 0
@@ -400,6 +404,10 @@ function HomePage() {
     }
   }
 
+  function handleTrendingReset() {
+    handleSearch({ type: 'city', value: '' })
+  }
+
   function showExplore(targetId = 'explore-map') {
     const resolvedTargetId =
       typeof targetId === 'string' ? targetId : 'explore-map'
@@ -528,9 +536,13 @@ function HomePage() {
 
         <div className="discovery-highlights">
           <TrendingCities
+            activeCity={activeTrendingCity}
+            cities={trendingCities}
+            loading={listLoading}
             onCitySelect={(city) => handleSearch({ type: 'city', value: city })}
+            onResetCity={handleTrendingReset}
           />
-          <FeaturedEvents events={featuredEvents} loading={discoveryLoading} />
+          <FeaturedEvents events={featuredEvents} loading={listLoading} />
         </div>
         <HowItWorks />
         <SourcesStrip />

@@ -1,16 +1,6 @@
 import { useFavorites } from '../favorites/useFavorites'
+import { getEventImageUrl } from '../utils/eventDisplay'
 import ProviderBadge from './ProviderBadge'
-
-function getFavoriteImage(favorite) {
-  return (
-    favorite.image_url ||
-    favorite.image ||
-    favorite.imageUrl ||
-    favorite.thumbnail_url ||
-    favorite.thumbnail ||
-    ''
-  )
-}
 
 function formatDateTime(date, time) {
   if (!date && !time) return ''
@@ -80,7 +70,7 @@ function FavoritesView({ onExplore }) {
               const eventName = favorite.event_name || 'Untitled event'
               const location = formatLocation(favorite)
               const dateTime = formatDateTime(favorite.date, favorite.time)
-              const imageUrl = getFavoriteImage(favorite)
+              const imageUrl = getEventImageUrl(favorite)
 
               return (
                 <article className="favorite-card" key={favorite.id}>

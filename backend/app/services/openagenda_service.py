@@ -161,6 +161,58 @@ def _event_url(raw: dict, agenda_slug: str) -> str:
     return ""
 
 
+def _is_image_url(value: str) -> bool:
+    normalized_value = value.strip().lower()
+    return normalized_value.startswith(("http://", "https://", "//"))
+
+
+def _collect_image_urls(value: object) -> list[str]:
+    if isinstance(value, str):
+        return [value.strip()] if _is_image_url(value) else []
+
+    if isinstance(value, list):
+        urls: list[str] = []
+        for item in value:
+            urls.extend(_collect_image_urls(item))
+        return urls
+
+    if not isinstance(value, dict):
+        return []
+
+    urls: list[str] = []
+    for key in (
+        "url",
+        "src",
+        "base",
+        "original",
+        "large",
+        "medium",
+        "thumbnail",
+        "imageUrl",
+        "image_url",
+    ):
+        image_url = value.get(key)
+        if isinstance(image_url, str) and _is_image_url(image_url):
+            urls.append(image_url.strip())
+
+    for key in ("image", "images", "thumbnailUrl", "cover", "variants"):
+        urls.extend(_collect_image_urls(value.get(key)))
+
+    return urls
+
+
+def _extract_openagenda_image_url(raw: dict) -> str:
+    image_urls: list[str] = []
+    for key in ("image", "images", "thumbnail", "thumbnailUrl", "cover", "media"):
+        image_urls.extend(_collect_image_urls(raw.get(key)))
+
+    unique_image_urls = list(dict.fromkeys(image_urls))
+    if not unique_image_urls:
+        return ""
+
+    return max(unique_image_urls, key=len)
+
+
 def _event_sort_key(event: EventResponse) -> tuple[str, str, str]:
     return (
         (event.date or "").strip(),
@@ -229,6 +281,7 @@ def _normalize_openagenda_event(raw: dict, agenda_slug: str) -> EventResponse | 
         latitude=latitude,
         longitude=longitude,
         ticket_url=ticket_url,
+        image_url=_extract_openagenda_image_url(raw),
         is_location_approximate=False,
         source="openagenda",
         genres=classification.genres,

@@ -13,6 +13,7 @@ class EventResponse(BaseModel):
     latitude: float
     longitude: float
     ticket_url: str
+    image_url: str | None = None
     is_location_approximate: bool = False
     source: str = "ticketmaster"
     genres: list[str] = Field(default_factory=list)
