@@ -79,6 +79,31 @@ export function logoutUser() {
   return requestAuth('/api/auth/logout', { method: 'POST' })
 }
 
+export function verifyEmail(token) {
+  return requestAuth('/api/auth/verify-email', {
+    method: 'POST',
+    body: JSON.stringify({ token }),
+  })
+}
+
+export function resendVerificationEmail() {
+  return requestAuth('/api/auth/resend-verification', { method: 'POST' })
+}
+
+export function forgotPassword(email) {
+  return requestAuth('/api/auth/forgot-password', {
+    method: 'POST',
+    body: JSON.stringify({ email }),
+  })
+}
+
+export function resetPassword(token, password) {
+  return requestAuth('/api/auth/reset-password', {
+    method: 'POST',
+    body: JSON.stringify({ token, password }),
+  })
+}
+
 async function requestFavorites(path = '', options = {}) {
   let response
 

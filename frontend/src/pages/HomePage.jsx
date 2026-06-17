@@ -78,6 +78,39 @@ function addDays(date, days) {
   return nextDate
 }
 
+function EmailVerificationBanner() {
+  const { resendVerificationEmail, user } = useAuth()
+  const [status, setStatus] = useState('')
+  const [isSending, setIsSending] = useState(false)
+
+  if (!user || user.is_email_verified !== false) return null
+
+  async function handleResend() {
+    setStatus('')
+    setIsSending(true)
+    try {
+      const response = await resendVerificationEmail()
+      setStatus(response?.message || 'Verification email sent.')
+    } catch {
+      setStatus('Unable to send verification email right now.')
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  return (
+    <div className="email-verification-banner" role="status">
+      <div>
+        <p>Please verify your email to secure your account.</p>
+        {status ? <span>{status}</span> : null}
+      </div>
+      <button type="button" onClick={handleResend} disabled={isSending}>
+        {isSending ? 'Sending...' : 'Resend email'}
+      </button>
+    </div>
+  )
+}
+
 function getQuickDateRange(filter, today = new Date()) {
   const currentDate = new Date(
     today.getFullYear(),
@@ -395,6 +428,7 @@ function HomePage() {
         onExplore={showExplore}
         onLogoutSuccess={showHomeTop}
       />
+      <EmailVerificationBanner />
       {activeView === 'favorites' && isAuthenticated ? (
         <FavoritesView onExplore={showExplore} />
       ) : (
