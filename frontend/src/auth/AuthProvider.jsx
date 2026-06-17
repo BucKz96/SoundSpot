@@ -1,9 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   getCurrentUser,
+  forgotPassword as requestForgotPassword,
   loginUser,
   logoutUser,
   registerUser,
+  resendVerificationEmail as requestResendVerificationEmail,
+  resetPassword as requestResetPassword,
+  verifyEmail as requestVerifyEmail,
 } from '../services/api'
 import AuthModal from '../components/AuthModal'
 import { AuthContext } from './AuthContext'
@@ -92,6 +96,30 @@ function AuthProvider({ children }) {
     setIsAuthLoading(false)
   }, [])
 
+  const verifyEmail = useCallback(async (token) => {
+    const response = await requestVerifyEmail(token)
+    authRequestVersion.current += 1
+    if (response?.user) {
+      setUser(response.user)
+      setIsAuthLoading(false)
+    } else {
+      await refreshCurrentUser()
+    }
+    return response
+  }, [refreshCurrentUser])
+
+  const resendVerificationEmail = useCallback(async () => {
+    return requestResendVerificationEmail()
+  }, [])
+
+  const forgotPassword = useCallback(async (email) => {
+    return requestForgotPassword(email)
+  }, [])
+
+  const resetPassword = useCallback(async (token, password) => {
+    return requestResetPassword(token, password)
+  }, [])
+
   const openAuthModal = useCallback((mode = 'login', message = '') => {
     setAuthModal({ mode, message })
   }, [])
@@ -108,6 +136,10 @@ function AuthProvider({ children }) {
       login,
       register,
       logout,
+      verifyEmail,
+      resendVerificationEmail,
+      forgotPassword,
+      resetPassword,
       refreshCurrentUser,
       openAuthModal,
       closeAuthModal,
@@ -118,6 +150,10 @@ function AuthProvider({ children }) {
       login,
       register,
       logout,
+      verifyEmail,
+      resendVerificationEmail,
+      forgotPassword,
+      resetPassword,
       refreshCurrentUser,
       openAuthModal,
       closeAuthModal,

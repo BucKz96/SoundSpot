@@ -215,7 +215,7 @@ class PasswordResetRouteTests(unittest.TestCase):
         self.assertIsNone(reused_token)
 
     def test_reset_password_token_cannot_be_reused(self) -> None:
-        self.register()
+        self.register(password="oldpassword123")
         sent_tokens = []
 
         with patch(
@@ -224,11 +224,21 @@ class PasswordResetRouteTests(unittest.TestCase):
         ):
             self.forgot_password()
 
-        first_response = self.reset_password(sent_tokens[0])
+        first_response = self.reset_password(sent_tokens[0], "newpassword123")
         second_response = self.reset_password(sent_tokens[0], "anotherpass123")
+        first_new_login = self.client.post(
+            "/api/auth/login",
+            json={"email": "reset@example.com", "password": "newpassword123"},
+        )
+        second_new_login = self.client.post(
+            "/api/auth/login",
+            json={"email": "reset@example.com", "password": "anotherpass123"},
+        )
 
         self.assertEqual(first_response.status_code, 200)
         self.assertEqual(second_response.status_code, 400)
+        self.assertEqual(first_new_login.status_code, 200)
+        self.assertEqual(second_new_login.status_code, 401)
 
     def test_reset_password_refuses_invalid_token(self) -> None:
         response = self.reset_password("invalid-token")

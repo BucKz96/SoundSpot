@@ -19,12 +19,13 @@ function getAuthErrorMessage(error, mode) {
 }
 
 function AuthModal({ initialMode = 'login', message = '', onClose }) {
-  const { login, register } = useAuth()
+  const { forgotPassword, login, register, resendVerificationEmail } = useAuth()
   const [mode, setMode] = useState(initialMode)
   const [email, setEmail] = useState('')
   const [displayName, setDisplayName] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const emailInputRef = useRef(null)
   const isSubmittingRef = useRef(false)
@@ -32,6 +33,8 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
   const titleId = useId()
   const descriptionId = useId()
   const isRegister = mode === 'register'
+  const isForgotPassword = mode === 'forgot-password'
+  const isCheckEmail = mode === 'check-email'
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -55,11 +58,33 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
     setMode(nextMode)
     setPassword('')
     setError('')
+    setSuccessMessage('')
   }
 
   async function handleSubmit(event) {
     event.preventDefault()
     setError('')
+    setSuccessMessage('')
+
+    if (isForgotPassword) {
+      if (!email.trim()) {
+        setError('Email is required.')
+        return
+      }
+
+      isSubmittingRef.current = true
+      setIsSubmitting(true)
+      try {
+        await forgotPassword(email.trim())
+        setSuccessMessage('If an account exists, a reset link has been sent.')
+      } catch {
+        setError('Unable to request a reset link right now. Please try again.')
+      } finally {
+        isSubmittingRef.current = false
+        setIsSubmitting(false)
+      }
+      return
+    }
 
     if (!email.trim() || !password) {
       setError('Email and password are required.')
@@ -82,10 +107,13 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
           display_name: displayName.trim() || null,
           password,
         })
+        setMode('check-email')
+        setPassword('')
+        setDisplayName('')
       } else {
         await login({ email: email.trim(), password })
+        succeeded = true
       }
-      succeeded = true
     } catch (submitError) {
       setError(getAuthErrorMessage(submitError, mode))
     } finally {
@@ -94,6 +122,43 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
     }
 
     if (succeeded) onClose()
+  }
+
+  async function handleResendVerification() {
+    setError('')
+    setSuccessMessage('')
+    isSubmittingRef.current = true
+    setIsSubmitting(true)
+    try {
+      const response = await resendVerificationEmail()
+      setSuccessMessage(response?.message || 'Verification email sent.')
+    } catch {
+      setError('Unable to resend the verification email right now.')
+    } finally {
+      isSubmittingRef.current = false
+      setIsSubmitting(false)
+    }
+  }
+
+  function getHeadingTitle() {
+    if (isCheckEmail) return 'Check your email'
+    if (isForgotPassword) return 'Reset your password'
+    return isRegister ? 'Create your account' : 'Welcome back'
+  }
+
+  function getHeadingDescription() {
+    if (isCheckEmail) {
+      return 'Your account has been created. Please check your email to verify your account.'
+    }
+    if (isForgotPassword) {
+      return 'Enter your email and we will send a reset link if an account exists.'
+    }
+    return (
+      message ||
+      (isRegister
+        ? 'Create an account to prepare your personalized SoundSpot experience.'
+        : 'Sign in to continue exploring live music with your account.')
+    )
   }
 
   return createPortal(
@@ -123,23 +188,17 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
 
         <div className="auth-modal__heading">
           <p className="auth-modal__eyebrow">SoundSpot account</p>
-          <h2 id={titleId}>
-            {isRegister ? 'Create your account' : 'Welcome back'}
-          </h2>
-          <p id={descriptionId}>
-            {message ||
-              (isRegister
-                ? 'Create an account to prepare your personalized SoundSpot experience.'
-                : 'Sign in to continue exploring live music with your account.')}
-          </p>
+          <h2 id={titleId}>{getHeadingTitle()}</h2>
+          <p id={descriptionId}>{getHeadingDescription()}</p>
         </div>
 
+        {!isCheckEmail ? (
         <div className="auth-modal__tabs" role="tablist" aria-label="Authentication mode">
           <button
             type="button"
             role="tab"
-            aria-selected={!isRegister}
-            className={!isRegister ? 'is-active' : ''}
+            aria-selected={!isRegister && !isForgotPassword}
+            className={!isRegister && !isForgotPassword ? 'is-active' : ''}
             onClick={() => switchMode('login')}
             disabled={isSubmitting}
           >
@@ -156,7 +215,38 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
             Create account
           </button>
         </div>
+        ) : null}
 
+        {isCheckEmail ? (
+          <div className="auth-modal__form auth-modal__check-email">
+            {successMessage ? (
+              <p className="auth-modal__success" role="status">
+                {successMessage}
+              </p>
+            ) : null}
+            {error ? (
+              <p className="auth-modal__error" role="alert">
+                {error}
+              </p>
+            ) : null}
+            <button
+              className="auth-modal__submit"
+              type="button"
+              disabled={isSubmitting}
+              onClick={handleResendVerification}
+            >
+              {isSubmitting ? 'Sending...' : 'Resend verification email'}
+            </button>
+            <button
+              className="auth-modal__secondary-action"
+              type="button"
+              disabled={isSubmitting}
+              onClick={onClose}
+            >
+              Continue browsing
+            </button>
+          </div>
+        ) : (
         <form className="auth-modal__form" onSubmit={handleSubmit} noValidate>
           <label>
             <span>Email</span>
@@ -187,6 +277,7 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
             </label>
           ) : null}
 
+          {!isForgotPassword ? (
           <label>
             <span>Password</span>
             <input
@@ -200,11 +291,28 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
               disabled={isSubmitting}
             />
           </label>
+          ) : null}
 
           {error ? (
             <p className="auth-modal__error" role="alert">
               {error}
             </p>
+          ) : null}
+          {successMessage ? (
+            <p className="auth-modal__success" role="status">
+              {successMessage}
+            </p>
+          ) : null}
+
+          {!isRegister && !isForgotPassword ? (
+            <button
+              className="auth-modal__text-action"
+              type="button"
+              onClick={() => switchMode('forgot-password')}
+              disabled={isSubmitting}
+            >
+              Forgot password?
+            </button>
           ) : null}
 
           <button
@@ -213,14 +321,29 @@ function AuthModal({ initialMode = 'login', message = '', onClose }) {
             disabled={isSubmitting}
           >
             {isSubmitting
-              ? isRegister
+              ? isForgotPassword
+                ? 'Sending reset link...'
+                : isRegister
                 ? 'Creating account...'
                 : 'Signing in...'
-              : isRegister
+              : isForgotPassword
+                ? 'Send reset link'
+                : isRegister
                 ? 'Create account'
                 : 'Sign in'}
           </button>
+          {isForgotPassword ? (
+            <button
+              className="auth-modal__secondary-action"
+              type="button"
+              onClick={() => switchMode('login')}
+              disabled={isSubmitting}
+            >
+              Back to sign in
+            </button>
+          ) : null}
         </form>
+        )}
       </section>
     </div>,
     document.body,
