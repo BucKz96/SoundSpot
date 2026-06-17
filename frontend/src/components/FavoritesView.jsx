@@ -1,6 +1,17 @@
 import { useFavorites } from '../favorites/useFavorites'
 import ProviderBadge from './ProviderBadge'
 
+function getFavoriteImage(favorite) {
+  return (
+    favorite.image_url ||
+    favorite.image ||
+    favorite.imageUrl ||
+    favorite.thumbnail_url ||
+    favorite.thumbnail ||
+    ''
+  )
+}
+
 function formatDateTime(date, time) {
   if (!date && !time) return ''
   const normalizedTime = typeof time === 'string' ? time.slice(0, 5) : ''
@@ -69,9 +80,15 @@ function FavoritesView({ onExplore }) {
               const eventName = favorite.event_name || 'Untitled event'
               const location = formatLocation(favorite)
               const dateTime = formatDateTime(favorite.date, favorite.time)
+              const imageUrl = getFavoriteImage(favorite)
 
               return (
                 <article className="favorite-card" key={favorite.id}>
+                  {imageUrl ? (
+                    <div className="favorite-card__media" aria-hidden="true">
+                      <img src={imageUrl} alt="" loading="lazy" />
+                    </div>
+                  ) : null}
                   <div className="favorite-card__topline">
                     <ProviderBadge source={favorite.source} compact />
                     <button
