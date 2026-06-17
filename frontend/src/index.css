@@ -4398,6 +4398,133 @@ html {
   font-size: 0.65rem !important;
 }
 
+.public-page {
+  width: min(100%, var(--layout-max));
+  margin: 0 auto;
+  padding: clamp(3.5rem, 8vw, 6.5rem) clamp(1rem, 3vw, 1.5rem) 0;
+}
+
+.public-page__hero {
+  max-width: 48rem;
+  margin: 0 auto clamp(1.6rem, 4vw, 2.6rem);
+  text-align: center;
+}
+
+.public-page__hero .section-kicker {
+  margin-bottom: 0.7rem;
+  letter-spacing: 0.12em;
+}
+
+.public-page__hero h1 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: clamp(2.25rem, 6vw, 4.4rem);
+  line-height: 0.96;
+  letter-spacing: 0;
+}
+
+.public-page__hero p:last-child {
+  margin: 1rem auto 0;
+  max-width: 42rem;
+  color: #a7b0c3;
+  font-size: clamp(0.98rem, 2vw, 1.12rem);
+  line-height: 1.7;
+}
+
+.public-page__content {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  max-width: 66rem;
+  margin: 0 auto;
+}
+
+.public-card {
+  min-width: 0;
+  padding: clamp(1.1rem, 3vw, 1.5rem);
+  border: 1px solid rgba(148, 163, 184, 0.14);
+  border-radius: 8px;
+  background:
+    linear-gradient(145deg, rgba(18, 24, 39, 0.8), rgba(7, 10, 20, 0.84)),
+    rgba(7, 10, 20, 0.72);
+  box-shadow: 0 1.4rem 3.5rem rgba(0, 0, 0, 0.24);
+}
+
+.public-card h2 {
+  margin: 0 0 0.65rem;
+  color: #f7f7fb;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.public-card p {
+  margin: 0;
+  color: #a7b0c3;
+  font-size: 0.92rem;
+  line-height: 1.68;
+}
+
+.public-card p + p {
+  margin-top: 0.8rem;
+}
+
+.public-card a {
+  color: #67e8f9;
+  text-decoration: none;
+}
+
+.public-card a:hover,
+.public-card a:focus-visible {
+  color: #cffafe;
+  outline: none;
+  text-decoration: underline;
+}
+
+.public-card--contact {
+  border-color: rgba(103, 232, 249, 0.22);
+}
+
+.public-email-link {
+  display: inline-flex;
+  width: fit-content;
+  margin-top: 1rem;
+  padding: 0.62rem 0.78rem;
+  border: 1px solid rgba(103, 232, 249, 0.2);
+  border-radius: 8px;
+  background: rgba(34, 211, 238, 0.08);
+  color: #cffafe;
+  font-weight: 700;
+}
+
+@media (max-width: 720px) {
+  .public-page {
+    padding-top: 2.65rem;
+  }
+
+  .public-page__content {
+    grid-template-columns: 1fr;
+    gap: 0.82rem;
+  }
+
+  .public-page__hero {
+    text-align: left;
+  }
+
+  .public-page__hero h1 {
+    font-size: clamp(2rem, 11vw, 3rem);
+    line-height: 1.02;
+  }
+
+  .public-page__hero p:last-child {
+    margin-inline: 0;
+    font-size: 0.95rem;
+  }
+
+  .public-card {
+    padding: 1rem;
+  }
+}
+
 @media (max-width: 1050px) {
   .app-navbar__nav {
     gap: 0.2rem;
