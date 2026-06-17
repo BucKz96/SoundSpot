@@ -2,6 +2,7 @@ const defaultBaseUrl = `${window.location.protocol}//${window.location.hostname}
 const baseUrl = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl
 const spotifyArtistCache = new Map()
 const spotifyArtistRequests = new Map()
+let discoveryEventsRequest = null
 
 export class AuthApiError extends Error {
   constructor(message, status = 0) {
@@ -197,9 +198,15 @@ export async function getEventsByCity(city) {
 }
 
 export async function getDiscoveryEvents() {
-  const response = await fetch(`${baseUrl}/api/events/discovery`)
+  if (discoveryEventsRequest) return discoveryEventsRequest
 
-  return getJsonArray(response, 'Failed to load discovery events')
+  discoveryEventsRequest = fetch(`${baseUrl}/api/events/discovery`)
+    .then((response) => getJsonArray(response, 'Failed to load discovery events'))
+    .finally(() => {
+      discoveryEventsRequest = null
+    })
+
+  return discoveryEventsRequest
 }
 
 export async function getEventsByArtist(artist) {

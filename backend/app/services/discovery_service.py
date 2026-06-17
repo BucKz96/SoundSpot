@@ -14,6 +14,8 @@ from app.services.openagenda_service import (
 from app.services.shotgun_service import ShotgunAPIError, search_shotgun_events
 from app.services.ticketmaster_service import (
     TicketmasterAPIError,
+    TicketmasterRateLimitError,
+    is_ticketmaster_rate_limited,
     search_events_by_city_for_discovery,
 )
 
@@ -71,6 +73,7 @@ def _expects_ticketmaster_discovery() -> bool:
         (settings.ticketmaster_api_key or "").strip()
         and settings.discovery_seed_cities
         and _get_ticketmaster_max_events_per_city() > 0
+        and not is_ticketmaster_rate_limited()
     )
 
 
@@ -289,6 +292,10 @@ async def _get_ticketmaster_city_events(city: str) -> list[EventResponse]:
 
 async def _get_ticketmaster_discovery_events() -> list[EventResponse]:
     seed_cities = settings.discovery_seed_cities
+    if is_ticketmaster_rate_limited():
+        logger.warning("Ticketmaster rate limited; temporarily skipping provider.")
+        return []
+
     logger.info(
         "Discovery Ticketmaster seed cities=%s max_per_city=%s months_ahead=%s",
         seed_cities,
@@ -301,9 +308,18 @@ async def _get_ticketmaster_discovery_events() -> list[EventResponse]:
         return_exceptions=True,
     )
     successful_city_events = []
+    rate_limit_logged = False
 
     for city, result in zip(seed_cities, city_results):
         if isinstance(result, BaseException):
+            if isinstance(result, TicketmasterRateLimitError):
+                if not rate_limit_logged:
+                    logger.warning(
+                        "Ticketmaster rate limited; temporarily skipping provider."
+                    )
+                    rate_limit_logged = True
+                continue
+
             logger.warning(
                 "Discovery Ticketmaster city failed city=%s error_type=%s error=%s",
                 city,
@@ -411,7 +427,7 @@ async def get_discovery_events() -> list[EventResponse]:
             if discovery_events:
                 _cached_events = discovery_events
                 _has_cached_response = True
-                _cache_ticketmaster_attempted = True
+                _cache_ticketmaster_attempted = not is_ticketmaster_rate_limited()
                 _cache_openagenda_attempted = True
                 _cache_expires_at = now + _get_discovery_cache_ttl_seconds()
                 logger.info(
