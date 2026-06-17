@@ -578,16 +578,31 @@ body::before {
 
 .event-map .event-map__base-tiles {
   filter:
-    brightness(0.96)
-    contrast(1.12)
-    saturate(0.62);
+    brightness(0.78)
+    contrast(1.2)
+    saturate(0.86)
+    sepia(0.04)
+    hue-rotate(184deg);
+  opacity: 0.95;
 }
 
 .event-map .event-map__label-tiles {
   filter:
-    brightness(0.82)
-    contrast(1.06)
-    saturate(0.42);
+    brightness(1.16)
+    contrast(1.08)
+    saturate(0.3)
+    sepia(0.04)
+    hue-rotate(194deg);
+  opacity: 0.045;
+  transition: opacity 0.18s ease;
+}
+
+.event-map.event-map--labels-regional .event-map__label-tiles {
+  opacity: 0.11;
+}
+
+.event-map.event-map--labels-local .event-map__label-tiles {
+  opacity: 0.28;
 }
 
 .event-map::after {
@@ -682,6 +697,111 @@ body::before {
   filter:
     drop-shadow(0 0 6px rgba(255, 255, 255, 0.12))
     drop-shadow(0 0 14px rgba(232, 121, 249, 0.38));
+}
+
+.event-map-global-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 0;
+}
+
+.event-map-global-marker span {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  width: 100%;
+  height: 100%;
+  place-items: center;
+  border-radius: 999px;
+}
+
+.event-map-global-marker span b,
+.event-map-global-marker span i {
+  position: absolute;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.event-map-global-marker--ping span {
+  width: 0.5rem;
+  height: 0.5rem;
+  border: 1px solid rgba(236, 254, 255, 0.92);
+  background: radial-gradient(circle at 36% 30%, #ffffff 0 10%, #a5f3fc 28%, #22d3ee 58%, #7c3aed 100%);
+  box-shadow:
+    0 0 0 0.14rem rgba(34, 211, 238, 0.13),
+    0 0 0 0.32rem rgba(139, 92, 246, 0.07),
+    0 0 0.82rem rgba(34, 211, 238, 0.7),
+    0 0 1.28rem rgba(167, 139, 250, 0.34);
+}
+
+.event-map-global-marker--ping span b {
+  inset: -0.42rem;
+  border: 1px solid rgba(103, 232, 249, 0.18);
+  opacity: 0.5;
+  animation: marker-halo-pulse 3.2s ease-out infinite;
+}
+
+.event-map-global-marker--ping span i {
+  inset: -0.7rem;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.17), transparent 68%);
+  opacity: 0.7;
+  z-index: -1;
+}
+
+.event-map-global-marker--cluster span {
+  border: 1px solid rgba(165, 243, 252, 0.42);
+  background:
+    radial-gradient(circle at 34% 26%, rgba(165, 243, 252, 0.34), transparent 28%),
+    radial-gradient(circle at 70% 76%, rgba(232, 121, 249, 0.14), transparent 36%),
+    linear-gradient(145deg, rgba(34, 211, 238, 0.14), rgba(124, 58, 237, 0.28));
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.04) inset,
+    0 0 0 0.14rem rgba(34, 211, 238, 0.065),
+    0 0 0.85rem rgba(34, 211, 238, 0.26),
+    0 0 1.35rem rgba(139, 92, 246, 0.28),
+    0 0 1.85rem rgba(232, 121, 249, 0.1);
+  backdrop-filter: blur(2px);
+}
+
+.event-map-global-marker--cluster span b {
+  inset: -0.36rem;
+  border: 1px solid rgba(167, 139, 250, 0.16);
+  box-shadow: 0 0 1.25rem rgba(34, 211, 238, 0.14);
+  opacity: 0.62;
+}
+
+.event-map-global-marker--cluster span i {
+  inset: 18%;
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.26), transparent 62%);
+  opacity: 0.7;
+}
+
+.event-map-global-marker--cluster span em {
+  position: relative;
+  z-index: 1;
+  color: #f8fbff;
+  font-size: 0.76rem;
+  font-style: normal;
+  font-weight: 850;
+  line-height: 1;
+  text-shadow:
+    0 1px 5px rgba(0, 0, 0, 0.8),
+    0 0 10px rgba(165, 243, 252, 0.34);
+}
+
+.event-map-global-marker--large span em {
+  font-size: 0.88rem;
+}
+
+.event-map-global-marker--active span {
+  border-color: rgba(236, 254, 255, 0.74);
+  box-shadow:
+    0 0 0 0.16rem rgba(34, 211, 238, 0.12),
+    0 0 0.95rem rgba(34, 211, 238, 0.42),
+    0 0 1.55rem rgba(167, 139, 250, 0.38),
+    0 0 2.2rem rgba(232, 121, 249, 0.14);
 }
 
 .event-map-marker {
@@ -964,15 +1084,17 @@ body::before {
 .event-map-marker--ticketmaster.event-map-marker--venue-cluster span,
 .event-map-marker--shotgun.event-map-marker--venue-cluster span,
 .event-map-marker--openagenda.event-map-marker--venue-cluster span {
-  border-color: rgba(224, 252, 255, 0.96);
+  border-color: rgba(165, 243, 252, 0.66);
   background:
-    radial-gradient(circle at 36% 30%, #ffffff 0 13%, #cffafe 24%, #67e8f9 48%, #60a5fa 72%, #a78bfa 100%);
+    radial-gradient(circle at 36% 30%, rgba(255, 255, 255, 0.46) 0 10%, transparent 26%),
+    radial-gradient(circle at 70% 76%, rgba(232, 121, 249, 0.16), transparent 36%),
+    linear-gradient(145deg, rgba(34, 211, 238, 0.17), rgba(124, 58, 237, 0.31));
   box-shadow:
-    0 0 0 0.12rem rgba(34, 211, 238, 0.22),
-    0 0 0 0.24rem rgba(139, 92, 246, 0.1),
-    0 0 0.8rem rgba(103, 232, 249, 0.78),
-    0 0 1.25rem rgba(59, 130, 246, 0.48),
-    0 0 1.55rem rgba(168, 85, 247, 0.28);
+    0 0 0 0.1rem rgba(34, 211, 238, 0.11),
+    0 0 0 0.2rem rgba(139, 92, 246, 0.065),
+    0 0 0.75rem rgba(34, 211, 238, 0.32),
+    0 0 1.05rem rgba(139, 92, 246, 0.27),
+    0 0 1.4rem rgba(232, 121, 249, 0.1);
 }
 
 .event-map-marker--venue-cluster span em,
@@ -980,9 +1102,11 @@ body::before {
 .event-map-marker--ticketmaster.event-map-marker--venue-cluster span em,
 .event-map-marker--shotgun.event-map-marker--venue-cluster span em,
 .event-map-marker--openagenda.event-map-marker--venue-cluster span em {
-  color: #050816;
+  color: #f8fbff;
   font-weight: 900;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.24);
+  text-shadow:
+    0 1px 5px rgba(0, 0, 0, 0.78),
+    0 0 8px rgba(165, 243, 252, 0.28);
 }
 
 .event-map-marker--approximate span {
@@ -5538,11 +5662,14 @@ body::before {
 }
 
 .map-showcase__view-toggle button.is-active {
-  color: var(--bg-deep);
-  background: linear-gradient(135deg, var(--accent-cyan), #67e8f9);
+  color: #eaf8ff;
+  background:
+    linear-gradient(135deg, rgba(34, 211, 238, 0.16), rgba(139, 92, 246, 0.18)),
+    rgba(3, 7, 18, 0.68);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16) inset,
-    0 0.45rem 1rem rgba(34, 211, 238, 0.14);
+    0 0 0 1px rgba(103, 232, 249, 0.24) inset,
+    0 0.35rem 0.85rem rgba(0, 0, 0, 0.18),
+    0 0 0.9rem rgba(34, 211, 238, 0.1);
 }
 
 .map-showcase__list-panel {

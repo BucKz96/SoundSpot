@@ -126,6 +126,85 @@ function getGroupSource(group) {
 }
 
 const LOCAL_CLUSTER_MIN_ZOOM = 11
+const GLOBAL_CLUSTER_MAX_ZOOM = LOCAL_CLUSTER_MIN_ZOOM - 1
+
+function getGlobalClusterCellSize(zoom) {
+  if (zoom <= 2) return 92
+  if (zoom <= 3) return 82
+  if (zoom <= 4) return 72
+  if (zoom <= 5) return 62
+  if (zoom <= 6) return 54
+  if (zoom <= 7) return 46
+  if (zoom <= 8) return 38
+  if (zoom <= 9) return 32
+  return 26
+}
+
+function getGlobalClusterIconSize(count) {
+  if (count >= 80) return 60
+  if (count >= 40) return 54
+  if (count >= 18) return 46
+  if (count >= 8) return 38
+  return 32
+}
+
+function createGlobalClusterIcon(cluster, isActive = false) {
+  const count = cluster.events.length
+  const isCluster = count > 1
+  const size = isCluster ? getGlobalClusterIconSize(count) : 18
+
+  return L.divIcon({
+    className: [
+      'event-map-global-marker',
+      isCluster ? 'event-map-global-marker--cluster' : 'event-map-global-marker--ping',
+      count >= 40 ? 'event-map-global-marker--large' : '',
+      isActive ? 'event-map-global-marker--active' : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
+    html: `<span><b></b><i></i>${isCluster ? `<em>${count}</em>` : ''}</span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  })
+}
+
+function buildGlobalClusters(groups, map, zoom) {
+  const cellSize = getGlobalClusterCellSize(zoom)
+  const clustersByCell = new Map()
+
+  groups.forEach((group) => {
+    const point = map.project([group.latitude, group.longitude], zoom)
+    const cellKey = `${Math.floor(point.x / cellSize)}:${Math.floor(
+      point.y / cellSize,
+    )}`
+    const weight = Math.max(group.events.length, 1)
+    const existingCluster = clustersByCell.get(cellKey)
+
+    if (existingCluster) {
+      existingCluster.latitude += group.latitude * weight
+      existingCluster.longitude += group.longitude * weight
+      existingCluster.weight += weight
+      existingCluster.groupKeys.push(group.key)
+      existingCluster.events.push(...group.events)
+      return
+    }
+
+    clustersByCell.set(cellKey, {
+      key: `global:${zoom}:${cellKey}`,
+      latitude: group.latitude * weight,
+      longitude: group.longitude * weight,
+      weight,
+      groupKeys: [group.key],
+      events: [...group.events],
+    })
+  })
+
+  return Array.from(clustersByCell.values()).map((cluster) => ({
+    ...cluster,
+    latitude: cluster.latitude / cluster.weight,
+    longitude: cluster.longitude / cluster.weight,
+  }))
+}
 
 function createVenueIcon(group, isDiscovery, isActive = false, showClusterCount = true) {
   const count = group.events.length
@@ -200,6 +279,8 @@ function VenueMapLayer({
 
   const showLocalClusters = zoom >= LOCAL_CLUSTER_MIN_ZOOM
 
+  if (zoom < LOCAL_CLUSTER_MIN_ZOOM) return null
+
   return groups.map((group) => {
     return (
       <Marker
@@ -233,6 +314,78 @@ function VenueMapLayer({
         title={`${group.venue}: ${group.events.length} event${
           group.events.length === 1 ? '' : 's'
         }`}
+      />
+    )
+  })
+}
+
+function GlobalClusterLayer({
+  groups,
+  selectedGroupKeys,
+  onClusterSelect,
+  onEventOpen,
+}) {
+  const map = useMap()
+  const [zoom, setZoom] = useState(map.getZoom())
+
+  useEffect(() => {
+    const updateZoom = () => {
+      setZoom(map.getZoom())
+    }
+
+    updateZoom()
+    map.on('zoomend', updateZoom)
+
+    return () => {
+      map.off('zoomend', updateZoom)
+    }
+  }, [map])
+
+  const clusters = useMemo(() => {
+    if (zoom > GLOBAL_CLUSTER_MAX_ZOOM) return []
+    return buildGlobalClusters(groups, map, zoom)
+  }, [groups, map, zoom])
+
+  if (zoom > GLOBAL_CLUSTER_MAX_ZOOM) return null
+
+  return clusters.map((cluster) => {
+    const isActive = cluster.groupKeys.some((key) => selectedGroupKeys.has(key))
+    const isCluster = cluster.events.length > 1
+
+    return (
+      <Marker
+        key={cluster.key}
+        position={[cluster.latitude, cluster.longitude]}
+        icon={createGlobalClusterIcon(cluster, isActive)}
+        eventHandlers={{
+          click: () => {
+            onClusterSelect(cluster)
+            if (!isCluster) {
+              onEventOpen?.(cluster.events[0])
+              map.flyTo([cluster.latitude, cluster.longitude], 13, {
+                animate: true,
+                duration: 0.7,
+              })
+              return
+            }
+
+            const bounds = L.latLngBounds(
+              groups
+                .filter((group) => cluster.groupKeys.includes(group.key))
+                .map((group) => [group.latitude, group.longitude]),
+            )
+
+            map.flyToBounds(bounds, {
+              animate: true,
+              duration: 0.75,
+              padding: [54, 54],
+              maxZoom: Math.min(zoom + 3, GLOBAL_CLUSTER_MAX_ZOOM + 1),
+            })
+          },
+        }}
+        title={`${cluster.events.length} event${
+          cluster.events.length === 1 ? '' : 's'
+        } in this area`}
       />
     )
   })
@@ -510,7 +663,7 @@ function MapPreview({
   )
   const selectedGroups = useMemo(
     () =>
-      mapSelection?.type === 'venue'
+      mapSelection
         ? mapSelection.groupKeys
             .map((key) => venueGroups.find((group) => group.key === key))
             .filter(Boolean)
@@ -520,6 +673,10 @@ function MapPreview({
   const selectedEvents = useMemo(
     () => selectedGroups.flatMap((group) => group.events),
     [selectedGroups],
+  )
+  const selectedGroupKeys = useMemo(
+    () => new Set(mapSelection?.groupKeys || []),
+    [mapSelection],
   )
   const visibleEvents = useMemo(() => {
     if (!mapViewport?.bounds || !mapViewport?.center) {
@@ -581,23 +738,37 @@ function MapPreview({
   ])
   const panelEvents =
     selectedEvents.length > 0 ? selectedEvents : panelVisibleEvents
-  const panelTitle = !mapSelection
-    ? `${visibleEvents.length} event${
-        visibleEvents.length === 1 ? '' : 's'
-      } visible`
-    : 'Events at this venue'
-  const panelSubtitle = !mapSelection
-    ? `Showing ${panelEvents.length} nearest event${
-        panelEvents.length === 1 ? '' : 's'
-      } in this area`
-    : `${selectedGroups[0]?.venue || 'Venue TBA'} | ${
-        selectedGroups[0]?.city || 'City unavailable'
-      } | ${selectedEvents.length} event${
-        selectedEvents.length === 1 ? '' : 's'
-      }`
+  const panelTitle =
+    mapSelection?.type === 'venue'
+      ? 'Events at this venue'
+      : mapSelection?.type === 'global'
+        ? 'Events in this area'
+        : `${visibleEvents.length} event${
+            visibleEvents.length === 1 ? '' : 's'
+          } visible`
+  const panelSubtitle =
+    mapSelection?.type === 'venue'
+      ? `${selectedGroups[0]?.venue || 'Venue TBA'} | ${
+          selectedGroups[0]?.city || 'City unavailable'
+        } | ${selectedEvents.length} event${
+          selectedEvents.length === 1 ? '' : 's'
+        }`
+      : mapSelection?.type === 'global'
+        ? `${selectedGroups.length} venue${
+            selectedGroups.length === 1 ? '' : 's'
+          } clustered | ${selectedEvents.length} event${
+            selectedEvents.length === 1 ? '' : 's'
+          }`
+        : `Showing ${panelEvents.length} nearest event${
+            panelEvents.length === 1 ? '' : 's'
+          } in this area`
   const handleVenueSelect = useCallback((group) => {
     setMapSelection({ type: 'venue', groupKeys: [group.key] })
     setFocusedEventKey(getEventKey(group.events[0]))
+  }, [])
+  const handleGlobalClusterSelect = useCallback((cluster) => {
+    setMapSelection({ type: 'global', groupKeys: cluster.groupKeys })
+    setFocusedEventKey(getEventKey(cluster.events[0]))
   }, [])
   const handleEventFocus = useCallback((event) => {
     if (!isValidCoordinate(event.latitude, event.longitude)) return
@@ -651,7 +822,7 @@ function MapPreview({
             />
             <TileLayer
               className="event-map__label-tiles"
-              opacity={0.56}
+              opacity={1}
               subdomains="abcd"
               noWrap
               url={CARTO_DARK_LABELS_TILES_URL}
@@ -665,6 +836,12 @@ function MapPreview({
             <MapFocusController event={focusedEvent} />
             <MapLabelDensityController />
             {showGlobalFallback ? <GlobalGlowMarkers /> : null}
+            <GlobalClusterLayer
+              groups={venueGroups}
+              selectedGroupKeys={selectedGroupKeys}
+              onClusterSelect={handleGlobalClusterSelect}
+              onEventOpen={onEventOpen}
+            />
             <VenueMapLayer
               groups={venueGroups}
               isDiscovery={showGlobalDiscovery}
