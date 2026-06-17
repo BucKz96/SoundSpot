@@ -43,6 +43,10 @@ class UserLogin(BaseModel):
         return normalize_email(value) if isinstance(value, str) else value
 
 
+class EmailVerifyRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=512)
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
@@ -57,6 +61,15 @@ class UserResponse(BaseModel):
 class AuthResponse(BaseModel):
     user: UserResponse
     message: str | None = None
+
+
+class AuthMessageResponse(BaseModel):
+    message: str
+
+
+class VerifyEmailResponse(BaseModel):
+    message: str
+    user: UserResponse
 
 
 class LogoutResponse(BaseModel):

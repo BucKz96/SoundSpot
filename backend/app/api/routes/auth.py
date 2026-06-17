@@ -1,3 +1,5 @@
+import logging
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
 from fastapi import (
@@ -21,21 +23,32 @@ from app.core.security import (
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
+    AuthMessageResponse,
     AuthResponse,
+    EmailVerifyRequest,
     LogoutResponse,
     UserCreate,
     UserLogin,
     UserResponse,
+    VerifyEmailResponse,
 )
+from app.services import email_service
 from app.services.auth_service import (
     EmailAlreadyRegisteredError,
     authenticate_user,
     get_user_by_id,
     register_user,
 )
+from app.services.auth_token_service import (
+    consume_auth_token,
+    create_auth_token,
+    get_valid_token,
+)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 DatabaseSession = Annotated[Session, Depends(get_db)]
+logger = logging.getLogger(__name__)
+EMAIL_VERIFICATION_PURPOSE = "email_verification"
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
@@ -92,6 +105,14 @@ def register(
     try:
         require_token_configuration()
         user = register_user(db, payload)
+        raw_verification_token = create_auth_token(
+            db,
+            user,
+            EMAIL_VERIFICATION_PURPOSE,
+            timedelta(minutes=settings.email_verification_token_expire_minutes),
+        )
+        db.commit()
+        db.refresh(user)
         token = create_access_token(user.id)
     except EmailAlreadyRegisteredError as exc:
         raise HTTPException(
@@ -104,10 +125,15 @@ def register(
             detail=str(exc),
         ) from exc
 
+    try:
+        email_service.send_verification_email(user, raw_verification_token)
+    except Exception:
+        logger.exception("Failed to send verification email for user %s", user.id)
+
     _set_auth_cookie(response, token)
     return AuthResponse(
         user=UserResponse.model_validate(user),
-        message="Account created.",
+        message="Account created. Please verify your email.",
     )
 
 
@@ -152,6 +178,66 @@ def me(
     current_user: Annotated[User, Depends(get_current_user)],
 ) -> UserResponse:
     return UserResponse.model_validate(current_user)
+
+
+@router.post("/verify-email", response_model=VerifyEmailResponse)
+def verify_email(
+    payload: EmailVerifyRequest,
+    db: DatabaseSession,
+) -> VerifyEmailResponse:
+    auth_token = get_valid_token(
+        db,
+        payload.token,
+        EMAIL_VERIFICATION_PURPOSE,
+    )
+    if auth_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired verification token.",
+        )
+
+    user = auth_token.user
+    user.is_email_verified = True
+    user.email_verified_at = datetime.now(UTC)
+    consume_auth_token(db, auth_token)
+    db.commit()
+    db.refresh(user)
+
+    return VerifyEmailResponse(
+        message="Email verified.",
+        user=UserResponse.model_validate(user),
+    )
+
+
+@router.post("/resend-verification", response_model=AuthMessageResponse)
+def resend_verification(
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: DatabaseSession,
+) -> AuthMessageResponse:
+    if current_user.is_email_verified:
+        return AuthMessageResponse(message="Email already verified.")
+
+    raw_verification_token = create_auth_token(
+        db,
+        current_user,
+        EMAIL_VERIFICATION_PURPOSE,
+        timedelta(minutes=settings.email_verification_token_expire_minutes),
+    )
+    db.commit()
+    db.refresh(current_user)
+
+    try:
+        email_service.send_verification_email(
+            current_user,
+            raw_verification_token,
+        )
+    except Exception:
+        logger.exception(
+            "Failed to resend verification email for user %s",
+            current_user.id,
+        )
+
+    return AuthMessageResponse(message="Verification email sent.")
 
 
 @router.post("/logout", response_model=LogoutResponse)

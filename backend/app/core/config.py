@@ -5,6 +5,8 @@ class Settings(BaseSettings):
     app_name: str = "SoundSpot"
     app_env: str = "development"
     frontend_url: str = "http://localhost:5173"
+    email_provider: str = "log"
+    email_from: str = "SoundSpot <noreply@soundspot.local>"
     database_url: str = (
         "postgresql+psycopg://soundspot:soundspot@localhost:5432/soundspot"
     )
