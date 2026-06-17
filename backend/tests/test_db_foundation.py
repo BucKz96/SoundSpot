@@ -10,15 +10,17 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from app.core.config import Settings
 from app.db.base import Base
 from app.main import app
-from app.models import EventFavorite, User
+from app.models import AuthToken, EventFavorite, User
 
 
 class DatabaseFoundationTests(unittest.TestCase):
     def test_models_are_registered_in_metadata(self) -> None:
         self.assertIn("users", Base.metadata.tables)
         self.assertIn("event_favorites", Base.metadata.tables)
+        self.assertIn("auth_tokens", Base.metadata.tables)
         self.assertEqual(User.__tablename__, "users")
         self.assertEqual(EventFavorite.__tablename__, "event_favorites")
+        self.assertEqual(AuthToken.__tablename__, "auth_tokens")
 
     def test_event_favorite_has_expected_unique_constraint(self) -> None:
         table = Base.metadata.tables["event_favorites"]

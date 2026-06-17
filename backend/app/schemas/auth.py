@@ -47,6 +47,8 @@ class UserResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr
     display_name: str | None
+    is_email_verified: bool
+    email_verified_at: datetime | None
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
