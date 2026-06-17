@@ -47,6 +47,20 @@ class EmailVerifyRequest(BaseModel):
     token: str = Field(min_length=1, max_length=512)
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+    @field_validator("email", mode="before")
+    @classmethod
+    def normalize_email_value(cls, value: object) -> object:
+        return normalize_email(value) if isinstance(value, str) else value
+
+
+class ResetPasswordRequest(BaseModel):
+    token: str = Field(min_length=1, max_length=512)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class UserResponse(BaseModel):
     id: uuid.UUID
     email: EmailStr

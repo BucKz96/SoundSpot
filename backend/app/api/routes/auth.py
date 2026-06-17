@@ -18,6 +18,7 @@ from app.core.security import (
     TokenConfigurationError,
     create_access_token,
     decode_access_token,
+    hash_password,
     require_token_configuration,
 )
 from app.db.session import get_db
@@ -26,7 +27,9 @@ from app.schemas.auth import (
     AuthMessageResponse,
     AuthResponse,
     EmailVerifyRequest,
+    ForgotPasswordRequest,
     LogoutResponse,
+    ResetPasswordRequest,
     UserCreate,
     UserLogin,
     UserResponse,
@@ -36,6 +39,7 @@ from app.services import email_service
 from app.services.auth_service import (
     EmailAlreadyRegisteredError,
     authenticate_user,
+    get_user_by_email,
     get_user_by_id,
     register_user,
 )
@@ -43,12 +47,15 @@ from app.services.auth_token_service import (
     consume_auth_token,
     create_auth_token,
     get_valid_token,
+    invalidate_user_tokens,
 )
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 DatabaseSession = Annotated[Session, Depends(get_db)]
 logger = logging.getLogger(__name__)
 EMAIL_VERIFICATION_PURPOSE = "email_verification"
+PASSWORD_RESET_PURPOSE = "password_reset"
+PASSWORD_RESET_REQUEST_MESSAGE = "If an account exists, a reset email has been sent."
 
 
 def _set_auth_cookie(response: Response, token: str) -> None:
@@ -238,6 +245,57 @@ def resend_verification(
         )
 
     return AuthMessageResponse(message="Verification email sent.")
+
+
+@router.post("/forgot-password", response_model=AuthMessageResponse)
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    db: DatabaseSession,
+) -> AuthMessageResponse:
+    user = get_user_by_email(db, str(payload.email))
+    if user is None:
+        return AuthMessageResponse(message=PASSWORD_RESET_REQUEST_MESSAGE)
+
+    raw_reset_token = create_auth_token(
+        db,
+        user,
+        PASSWORD_RESET_PURPOSE,
+        timedelta(minutes=settings.password_reset_token_expire_minutes),
+    )
+    db.commit()
+    db.refresh(user)
+
+    try:
+        email_service.send_password_reset_email(user, raw_reset_token)
+    except Exception:
+        logger.exception("Failed to send password reset email for user %s", user.id)
+
+    return AuthMessageResponse(message=PASSWORD_RESET_REQUEST_MESSAGE)
+
+
+@router.post("/reset-password", response_model=AuthMessageResponse)
+def reset_password(
+    payload: ResetPasswordRequest,
+    db: DatabaseSession,
+) -> AuthMessageResponse:
+    auth_token = get_valid_token(
+        db,
+        payload.token,
+        PASSWORD_RESET_PURPOSE,
+    )
+    if auth_token is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid or expired password reset token.",
+        )
+
+    user = auth_token.user
+    user.hashed_password = hash_password(payload.password)
+    consume_auth_token(db, auth_token)
+    invalidate_user_tokens(db, user, PASSWORD_RESET_PURPOSE)
+    db.commit()
+
+    return AuthMessageResponse(message="Password updated.")
 
 
 @router.post("/logout", response_model=LogoutResponse)

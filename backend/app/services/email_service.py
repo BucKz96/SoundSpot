@@ -13,6 +13,12 @@ def build_email_verification_url(raw_token: str) -> str:
     return f"{frontend_url}/verify-email?{query}"
 
 
+def build_password_reset_url(raw_token: str) -> str:
+    frontend_url = settings.frontend_url.strip().rstrip("/")
+    query = urlencode({"token": raw_token})
+    return f"{frontend_url}/reset-password?{query}"
+
+
 def send_verification_email(user: User, raw_token: str) -> None:
     verification_url = build_email_verification_url(raw_token)
     provider = settings.email_provider.strip().casefold() or "log"
@@ -30,4 +36,24 @@ def send_verification_email(user: User, raw_token: str) -> None:
         provider,
         user.email,
         verification_url,
+    )
+
+
+def send_password_reset_email(user: User, raw_token: str) -> None:
+    reset_url = build_password_reset_url(raw_token)
+    provider = settings.email_provider.strip().casefold() or "log"
+
+    if provider == "log":
+        logger.info(
+            "Password reset link for %s: %s",
+            user.email,
+            reset_url,
+        )
+        return
+
+    logger.warning(
+        "Email provider %r is not implemented; password reset link for %s: %s",
+        provider,
+        user.email,
+        reset_url,
     )
