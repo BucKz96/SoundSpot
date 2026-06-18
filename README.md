@@ -1,6 +1,20 @@
-# SoundSpot
+<p align="center">
+  <img src="frontend/src/assets/soundspot-logo.png" alt="SoundSpot logo" width="220" />
+</p>
 
-**Map-first live music and nightlife discovery.**
+<h1 align="center">SoundSpot</h1>
+
+<p align="center">
+  Discover live music events worldwide through a map-first experience.
+</p>
+
+<p align="center">
+  <strong>Data sources and integrations</strong><br />
+  <img src="frontend/public/providers/ticketmaster.png" alt="Ticketmaster" height="28" />
+  <img src="frontend/public/providers/shotgun.png" alt="Shotgun" height="28" />
+  <img src="frontend/public/providers/openagenda.png" alt="OpenAgenda" height="28" />
+  <img src="frontend/public/providers/spotify.png" alt="Spotify" height="28" />
+</p>
 
 SoundSpot is a fullstack product/portfolio project built to help users discover live music, nightlife and cultural events through an interactive map. It combines external event sources, Spotify artist enrichment, account features and a responsive React interface into a V1-ready discovery experience.
 
@@ -11,7 +25,6 @@ SoundSpot does not sell tickets directly. When available, event actions redirect
 Live demo URLs will be updated once the V1 deployment is finalized.
 
 - Frontend demo: `https://your-vercel-app.vercel.app`
-- Backend API: `https://your-render-api.onrender.com`
 
 Custom domain: not configured yet.
 
@@ -33,21 +46,21 @@ The product focuses on discovery and redirection rather than ticket checkout. Pr
 
 ## Screenshots / Preview
 
-Screenshots and demo preview will be added before the public V1 release.
+### Landing page
 
-Planned preview assets:
+![SoundSpot landing page](docs/screenshots/landing.png)
 
-- Landing page
-- Discovery map
-- Event details / map sidebar
-- My Favorites
-- Auth and email verification flow
+### Discovery map
 
-Suggested paths for final assets:
+![SoundSpot discovery map](docs/screenshots/discovery-map.png)
 
-- `docs/screenshots/landing.png`
-- `docs/screenshots/discovery-map.png`
-- `docs/screenshots/my-favorites.png`
+### Real discovery highlights
+
+![SoundSpot discovery highlights](docs/screenshots/discovery-highlights.png)
+
+### My Favorites
+
+![SoundSpot My Favorites](docs/screenshots/my-favorites.png)
 
 ## Key Features
 
@@ -129,12 +142,12 @@ Most event data is fetched or derived from external providers, so coverage and f
 
 ## Data Providers
 
-SoundSpot V1 uses multiple event and enrichment sources:
+SoundSpot V1 uses multiple event data sources and artist enrichment integrations:
 
-- **Ticketmaster** for concerts, tours and larger venue listings.
-- **Shotgun** for club nights, electronic music and local scenes.
-- **OpenAgenda** for local cultural and music event listings.
-- **Spotify** for artist enrichment, including images, genres, popularity and external artist links when a reliable match is available.
+- **Ticketmaster**: event discovery and ticket links.
+- **Shotgun**: nightlife and music event discovery.
+- **OpenAgenda**: public/open event data.
+- **Spotify**: artist enrichment, including images, genres, popularity and external artist links when a reliable match is available.
 
 Provider data is normalized into a shared event model before it reaches the frontend. The app also includes provider stability work so one unavailable source does not necessarily block the full discovery experience.
 
@@ -188,14 +201,6 @@ Implemented V1 scope:
 - My Favorites
 - Responsive UI polish
 - Provider stability improvements
-
-Remaining before public release:
-
-- Production deployment
-- Production PostgreSQL setup
-- Transactional email provider configuration
-- Final QA
-- Screenshots/demo preview
 
 ## Known Limitations
 
