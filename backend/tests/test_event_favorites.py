@@ -10,6 +10,7 @@ from sqlalchemy.pool import StaticPool
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.core.config import settings
+from app.core.rate_limit import clear_rate_limit_store
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
@@ -36,6 +37,7 @@ class EventFavoriteRouteTests(unittest.TestCase):
         cls.engine.dispose()
 
     def setUp(self) -> None:
+        clear_rate_limit_store()
         with self.engine.begin() as connection:
             for table in reversed(Base.metadata.sorted_tables):
                 connection.execute(table.delete())
@@ -56,6 +58,7 @@ class EventFavoriteRouteTests(unittest.TestCase):
         self.client = TestClient(app)
 
     def tearDown(self) -> None:
+        clear_rate_limit_store()
         self.client.close()
         app.dependency_overrides.clear()
         settings.jwt_secret_key = self.original_secret

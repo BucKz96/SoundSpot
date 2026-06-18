@@ -1,5 +1,6 @@
-from fastapi import APIRouter, HTTPException, Query, Response
+from fastapi import APIRouter, HTTPException, Query, Request, Response
 
+from app.core.rate_limit import SPOTIFY_ARTIST_SEARCH_IP, require_rate_limit
 from app.schemas.artist import ArtistResponse
 from app.services.spotify_service import (
     SpotifyAPIError,
@@ -14,9 +15,12 @@ router = APIRouter(prefix="/artists", tags=["artists"])
 
 @router.get("/spotify/search", response_model=ArtistResponse)
 async def spotify_artist_search(
+    request: Request,
     response: Response,
     name: str = Query(min_length=1, max_length=200),
 ) -> ArtistResponse:
+    require_rate_limit(request, SPOTIFY_ARTIST_SEARCH_IP)
+
     try:
         return await search_spotify_artist(name)
     except ValueError as exc:

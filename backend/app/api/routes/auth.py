@@ -7,12 +7,25 @@ from fastapi import (
     Cookie,
     Depends,
     HTTPException,
+    Request,
     Response,
     status,
 )
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
+from app.core.rate_limit import (
+    AUTH_FORGOT_PASSWORD_EMAIL,
+    AUTH_FORGOT_PASSWORD_IP,
+    AUTH_LOGIN_EMAIL,
+    AUTH_LOGIN_IP,
+    AUTH_REGISTER_IP,
+    AUTH_RESEND_VERIFICATION_IP,
+    AUTH_RESEND_VERIFICATION_USER,
+    AUTH_RESET_PASSWORD_IP,
+    AUTH_VERIFY_EMAIL_IP,
+    require_rate_limit,
+)
 from app.core.security import (
     AUTH_COOKIE_NAME,
     TokenConfigurationError,
@@ -106,9 +119,12 @@ def get_current_user(
 )
 def register(
     payload: UserCreate,
+    request: Request,
     response: Response,
     db: DatabaseSession,
 ) -> AuthResponse:
+    require_rate_limit(request, AUTH_REGISTER_IP)
+
     try:
         require_token_configuration()
         user = register_user(db, payload)
@@ -147,9 +163,13 @@ def register(
 @router.post("/login", response_model=AuthResponse)
 def login(
     payload: UserLogin,
+    request: Request,
     response: Response,
     db: DatabaseSession,
 ) -> AuthResponse:
+    require_rate_limit(request, AUTH_LOGIN_IP)
+    require_rate_limit(request, AUTH_LOGIN_EMAIL, payload.email)
+
     try:
         require_token_configuration()
     except TokenConfigurationError as exc:
@@ -190,8 +210,11 @@ def me(
 @router.post("/verify-email", response_model=VerifyEmailResponse)
 def verify_email(
     payload: EmailVerifyRequest,
+    request: Request,
     db: DatabaseSession,
 ) -> VerifyEmailResponse:
+    require_rate_limit(request, AUTH_VERIFY_EMAIL_IP)
+
     auth_token = get_valid_token(
         db,
         payload.token,
@@ -218,9 +241,13 @@ def verify_email(
 
 @router.post("/resend-verification", response_model=AuthMessageResponse)
 def resend_verification(
+    request: Request,
     current_user: Annotated[User, Depends(get_current_user)],
     db: DatabaseSession,
 ) -> AuthMessageResponse:
+    require_rate_limit(request, AUTH_RESEND_VERIFICATION_IP)
+    require_rate_limit(request, AUTH_RESEND_VERIFICATION_USER, current_user.email)
+
     if current_user.is_email_verified:
         return AuthMessageResponse(message="Email already verified.")
 
@@ -250,8 +277,12 @@ def resend_verification(
 @router.post("/forgot-password", response_model=AuthMessageResponse)
 def forgot_password(
     payload: ForgotPasswordRequest,
+    request: Request,
     db: DatabaseSession,
 ) -> AuthMessageResponse:
+    require_rate_limit(request, AUTH_FORGOT_PASSWORD_IP)
+    require_rate_limit(request, AUTH_FORGOT_PASSWORD_EMAIL, payload.email)
+
     user = get_user_by_email(db, str(payload.email))
     if user is None:
         return AuthMessageResponse(message=PASSWORD_RESET_REQUEST_MESSAGE)
@@ -276,8 +307,11 @@ def forgot_password(
 @router.post("/reset-password", response_model=AuthMessageResponse)
 def reset_password(
     payload: ResetPasswordRequest,
+    request: Request,
     db: DatabaseSession,
 ) -> AuthMessageResponse:
+    require_rate_limit(request, AUTH_RESET_PASSWORD_IP)
+
     auth_token = get_valid_token(
         db,
         payload.token,

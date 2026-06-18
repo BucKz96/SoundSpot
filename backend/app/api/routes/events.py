@@ -1,6 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from app.core.config import settings
+from app.core.rate_limit import (
+    EVENTS_DISCOVERY_IP,
+    EVENTS_LIST_IP,
+    EVENTS_SEARCH_IP,
+    require_rate_limit,
+)
 from app.schemas.event import EventResponse
 from app.services.discovery_service import DiscoveryAPIError, get_discovery_events
 from app.services.event_aggregator_service import (
@@ -38,12 +44,15 @@ async def get_discovery_events_or_empty() -> list[EventResponse]:
 
 
 @router.get("", response_model=list[EventResponse])
-async def list_events() -> list[EventResponse]:
+async def list_events(request: Request) -> list[EventResponse]:
+    require_rate_limit(request, EVENTS_LIST_IP)
     return await get_discovery_events_or_empty()
 
 
 @router.get("/discovery", response_model=list[EventResponse])
-async def discovery_events() -> list[EventResponse]:
+async def discovery_events(request: Request) -> list[EventResponse]:
+    require_rate_limit(request, EVENTS_DISCOVERY_IP)
+
     try:
         return await get_discovery_events()
     except DiscoveryAPIError as exc:
@@ -52,9 +61,12 @@ async def discovery_events() -> list[EventResponse]:
 
 @router.get("/search", response_model=list[EventResponse])
 async def search_events(
+    request: Request,
     city: str | None = None,
     artist: str | None = None,
 ) -> list[EventResponse]:
+    require_rate_limit(request, EVENTS_SEARCH_IP)
+
     try:
         if city and city.strip():
             city_query = normalize_city_name(city)
