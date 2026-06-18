@@ -859,6 +859,7 @@ function MapPreview({
               className="event-map__base-tiles"
               subdomains="abcd"
               noWrap
+              bounds={WORLD_BOUNDS}
               url={CARTO_DARK_BASE_TILES_URL}
             />
             <TileLayer
@@ -866,6 +867,7 @@ function MapPreview({
               opacity={1}
               subdomains="abcd"
               noWrap
+              bounds={WORLD_BOUNDS}
               url={CARTO_DARK_LABELS_TILES_URL}
             />
             <MapSizeController
