@@ -786,7 +786,7 @@ function MapPreview({
         ? 'Events in this area'
         : `${visibleEvents.length} event${
             visibleEvents.length === 1 ? '' : 's'
-          } visible`
+          } visible on map`
   const panelSubtitle =
     mapSelection?.type === 'venue'
       ? `${selectedGroups[0]?.venue || 'Venue TBA'} | ${
