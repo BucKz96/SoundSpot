@@ -12,8 +12,7 @@ const PROVIDERS = {
   openagenda: {
     key: 'openagenda',
     label: 'OpenAgenda',
-    icon: '/providers/openagenda.svg',
-    fallbackIcon: '/providers/openagenda.png',
+    icon: '/providers/openagenda.png',
   },
 }
 
