@@ -786,7 +786,7 @@ function MapPreview({
         ? 'Events in this area'
         : `${visibleEvents.length} event${
             visibleEvents.length === 1 ? '' : 's'
-          } visible on map`
+          } on this map area`
   const panelSubtitle =
     mapSelection?.type === 'venue'
       ? `${selectedGroups[0]?.venue || 'Venue TBA'} | ${
@@ -800,9 +800,9 @@ function MapPreview({
           } clustered | ${selectedEvents.length} event${
             selectedEvents.length === 1 ? '' : 's'
           }`
-        : `Showing ${panelEvents.length} nearest event${
+        : `Showing ${panelEvents.length} nearby event${
             panelEvents.length === 1 ? '' : 's'
-          } in this area`
+          }`
   const handleVenueSelect = useCallback((group) => {
     setMapSelection({ type: 'venue', groupKeys: [group.key] })
     setFocusedEventKey(getEventKey(group.events[0]))
