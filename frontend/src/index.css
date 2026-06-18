@@ -5408,7 +5408,19 @@ html {
   }
 
   .landing-section--highlight .trending-cities {
+    gap: 0.34rem;
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .landing-section--highlight .trending-city {
+    min-height: 4.35rem;
+    padding: 0.5rem 0.58rem;
+    box-shadow: none;
+  }
+
+  .landing-section--highlight .trending-city__pulse {
+    width: 0.38rem;
+    height: 0.38rem;
   }
 
   .landing-section--highlight .featured-events {
@@ -7671,15 +7683,15 @@ body::before {
 
   .home-main-inner,
   .explore-section {
-    gap: 0.72rem;
+    gap: 0.62rem;
   }
 
   .hero {
-    padding-top: 0.35rem;
+    padding-top: 0.2rem;
   }
 
   .hero__eyebrow {
-    margin-bottom: 0.42rem;
+    margin-bottom: 0.34rem;
     font-size: 0.58rem;
     line-height: 1.2;
     letter-spacing: 0.12em;
@@ -7687,7 +7699,7 @@ body::before {
 
   .hero__title {
     max-width: 23rem;
-    margin: 0 auto 0.42rem;
+    margin: 0 auto 0.32rem;
     font-size: clamp(2rem, 9.4vw, 2.72rem);
     line-height: 0.98;
   }
@@ -7741,6 +7753,7 @@ body::before {
   }
 
   .product-benefits {
+    display: none;
     gap: 0;
     margin-top: 0;
   }
@@ -7890,11 +7903,11 @@ body::before {
   }
 
   .product-steps {
-    gap: 0.72rem;
+    gap: 0.62rem;
   }
 
   .product-step {
-    padding-block: 0.75rem;
+    padding-block: 0.68rem;
   }
 
   .product-step > span,

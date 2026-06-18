@@ -326,7 +326,7 @@ export function SourcesStrip() {
       aria-labelledby="sources-showcase-title"
     >
       <div className="landing-section__heading">
-        <p className="section-kicker">Integrated and planned providers</p>
+        <p className="section-kicker">Integrated event sources</p>
         <h2 id="sources-showcase-title">Trusted data from leading sources</h2>
         <p>
           We aggregate and normalize event data from multiple trusted sources
