@@ -2,18 +2,16 @@
   <img src="frontend/src/assets/soundspot-logo.png" alt="SoundSpot logo" width="220" />
 </p>
 
-<h1 align="center">SoundSpot</h1>
-
 <p align="center">
   Discover live music events worldwide through a map-first experience.
 </p>
 
 <p align="center">
   <strong>Data sources and integrations</strong><br />
-  <img src="frontend/public/providers/ticketmaster.png" alt="Ticketmaster" height="28" />
-  <img src="frontend/public/providers/shotgun.png" alt="Shotgun" height="28" />
-  <img src="frontend/public/providers/openagenda.png" alt="OpenAgenda" height="28" />
-  <img src="frontend/public/providers/spotify.png" alt="Spotify" height="28" />
+  <img src="frontend/public/providers/ticketmaster.png" alt="Ticketmaster" height="50" />
+  <img src="frontend/public/providers/shotgun.png" alt="Shotgun" height="50" />
+  <img src="frontend/public/providers/openagenda.png" alt="OpenAgenda" height="50" />
+  <img src="frontend/public/providers/spotify.png" alt="Spotify" height="50" />
 </p>
 
 SoundSpot is a fullstack product/portfolio project built to help users discover live music, nightlife and cultural events through an interactive map. It combines external event sources, Spotify artist enrichment, account features and a responsive React interface into a V1-ready discovery experience.
