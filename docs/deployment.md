@@ -27,6 +27,7 @@ APP_ENV=production
 DATABASE_URL=<Render PostgreSQL URL>
 JWT_SECRET_KEY=<secret>
 FRONTEND_URL=https://your-vercel-app.vercel.app
+RATE_LIMIT_ENABLED=true
 EMAIL_PROVIDER=resend
 RESEND_API_KEY=<secret>
 EMAIL_FROM=SoundSpot <onboarding@resend.dev>
@@ -47,6 +48,12 @@ Cookie behavior:
 - Production: `Secure=true`, `SameSite=None`
 
 This is required because the Vercel frontend and Render backend are on different domains. `AUTH_COOKIE_SAMESITE` can override the default if needed, but leaving it empty uses the environment-based defaults.
+
+## Rate Limiting
+
+The V1 backend includes simple in-memory rate limiting for sensitive auth and provider endpoints. Keep `RATE_LIMIT_ENABLED=true` in production.
+
+This is suitable for a single Render instance. If the backend is scaled to multiple instances later, replace the in-memory store with a shared store such as Redis or Upstash so limits are enforced across instances.
 
 ## PostgreSQL and Alembic
 
