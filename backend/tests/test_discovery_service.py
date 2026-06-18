@@ -100,6 +100,46 @@ class DiscoveryServiceStabilityTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(ticketmaster_mock.await_count, 1)
         self.assertEqual(openagenda_mock.await_count, 1)
 
+    async def test_rate_limited_ticketmaster_preserves_stale_cached_events(self) -> None:
+        cached_ticketmaster_event = discovery_event(
+            event_id="ticketmaster:cached-london",
+            source="ticketmaster",
+        )
+        fresh_shotgun_event = discovery_event(
+            event_id="shotgun:fresh-paris",
+            source="shotgun",
+        )
+        discovery_service._cached_events = [cached_ticketmaster_event]
+        discovery_service._cache_expires_at = 0.0
+        discovery_service._has_cached_response = True
+        discovery_service._cache_ticketmaster_attempted = True
+        discovery_service._cache_openagenda_attempted = True
+
+        with (
+            patch(
+                "app.services.discovery_service._get_shotgun_discovery_events",
+                new=AsyncMock(return_value=[fresh_shotgun_event]),
+            ),
+            patch(
+                "app.services.discovery_service._get_ticketmaster_discovery_events",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.services.discovery_service._get_openagenda_discovery_events",
+                new=AsyncMock(return_value=[]),
+            ),
+            patch(
+                "app.services.discovery_service.is_ticketmaster_rate_limited",
+                return_value=True,
+            ),
+        ):
+            events = await discovery_service.get_discovery_events()
+
+        self.assertEqual(
+            {event.id for event in events},
+            {cached_ticketmaster_event.id, fresh_shotgun_event.id},
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

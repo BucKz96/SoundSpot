@@ -25,7 +25,13 @@ import { buildFeaturedEvents, buildTrendingCities } from '../utils/eventDisplay'
 const EVENTS_PER_PAGE = 12
 const DEFAULT_GENRE_FILTER = 'all'
 const DEFAULT_QUICK_FILTER = ''
+const SEARCH_UNAVAILABLE_MESSAGE =
+  'Search is temporarily unavailable. Showing current discovery results.'
 const DATE_QUICK_FILTERS = new Set(['tonight', 'week', 'month'])
+const CITY_SEARCH_ALIASES = {
+  londre: 'london',
+  londres: 'london',
+}
 
 const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const CATEGORY_GENRES = {
@@ -149,6 +155,21 @@ function normalizeFilterText(value) {
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .trim()
+}
+
+function normalizeCitySearchText(value) {
+  const normalizedValue = normalizeFilterText(value)
+  return CITY_SEARCH_ALIASES[normalizedValue] || normalizedValue
+}
+
+function getLocalCityMatches(loadedEvents, city) {
+  const normalizedCity = normalizeCitySearchText(city)
+  if (!normalizedCity) return []
+
+  return loadedEvents.filter(
+    (event) => normalizeCitySearchText(event.city) === normalizedCity,
+  )
 }
 
 function formatMapTitle(value) {
@@ -383,12 +404,23 @@ function HomePage() {
       return
     }
 
-    setLoading(true)
     setError('')
     setLastSearch({ type: searchType, value: normalizedValue })
-    setHasSearched(true)
     setCurrentPage(1)
     resetFilters()
+
+    if (searchType === 'city') {
+      const localCityResults = getLocalCityMatches(discoveryEvents, normalizedValue)
+
+      if (localCityResults.length > 0) {
+        setEvents(localCityResults)
+        setHasSearched(true)
+        setLoading(false)
+        return
+      }
+    }
+
+    setLoading(true)
 
     try {
       const searchResults =
@@ -396,9 +428,27 @@ function HomePage() {
           ? await getEventsByArtist(normalizedValue)
           : await getEventsByCity(normalizedValue)
 
+      if (searchType === 'city' && searchResults.length === 0) {
+        setEvents([])
+        setHasSearched(false)
+        setError(`No events found for ${normalizedValue}. Showing current discovery results.`)
+        return
+      }
+
       setEvents(searchResults)
+      setHasSearched(true)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error')
+      if (searchType === 'city') {
+        setEvents([])
+        setHasSearched(false)
+        setError(SEARCH_UNAVAILABLE_MESSAGE)
+      } else {
+        setError(
+          err instanceof Error && err.message
+            ? err.message
+            : 'Search is temporarily unavailable. Try another search.',
+        )
+      }
     } finally {
       setLoading(false)
     }
@@ -466,7 +516,7 @@ function HomePage() {
               <p className="status-banner__title">Unable to display events</p>
               <p className="status-banner__detail">{error}</p>
               <p className="status-banner__hint">
-                Check that the backend is running and try again.
+                Try another city or artist.
               </p>
             </div>
           ) : null}

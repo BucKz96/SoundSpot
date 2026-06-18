@@ -32,6 +32,7 @@ _cache_openagenda_attempted = False
 _ticketmaster_semaphore = asyncio.Semaphore(4)
 _refresh_lock = asyncio.Lock()
 logger = logging.getLogger(__name__)
+DISCOVERY_SEARCH_STALE_TTL_SECONDS = 3600
 
 
 def _get_discovery_max_events() -> int:
@@ -68,6 +69,18 @@ def _source_counts(events: list[EventResponse]) -> dict[str, int]:
     return dict(Counter((event.source or "unknown").casefold() for event in events))
 
 
+def _get_cached_provider_events(source: str) -> list[EventResponse]:
+    if not _has_cached_response:
+        return []
+
+    normalized_source = source.casefold()
+    return [
+        event
+        for event in _cached_events
+        if (event.source or "").casefold() == normalized_source
+    ]
+
+
 def _expects_ticketmaster_discovery() -> bool:
     return bool(
         (settings.ticketmaster_api_key or "").strip()
@@ -96,6 +109,17 @@ def _is_cache_usable() -> bool:
         return False
 
     return True
+
+
+def get_cached_discovery_events_for_search() -> list[EventResponse]:
+    if not _has_cached_response:
+        return []
+
+    now = monotonic()
+    if now > _cache_expires_at + DISCOVERY_SEARCH_STALE_TTL_SECONDS:
+        return []
+
+    return list(_cached_events)
 
 
 def _safe_error_message(error: BaseException) -> str:
@@ -423,6 +447,15 @@ async def get_discovery_events() -> list[EventResponse]:
         )
 
         if events:
+            if is_ticketmaster_rate_limited():
+                cached_ticketmaster_events = _get_cached_provider_events("ticketmaster")
+                if cached_ticketmaster_events:
+                    events.extend(cached_ticketmaster_events)
+                    logger.warning(
+                        "Discovery preserving stale Ticketmaster cache events=%s",
+                        len(cached_ticketmaster_events),
+                    )
+
             discovery_events = _filter_discovery_events(events)
             if discovery_events:
                 _cached_events = discovery_events
