@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useAuth } from '../auth/useAuth'
 import logo from '../assets/soundspot-logo.png'
 import { howItWorksSteps } from '../data/landingData'
-import { mockFutureSources } from '../data/landingMockData'
 import { useFavorites } from '../favorites/useFavorites'
 import { getEventImageUrl } from '../utils/eventDisplay'
 import ProviderBadge from './ProviderBadge'
@@ -345,17 +344,6 @@ export function SourcesStrip() {
           </article>
         ))}
       </div>
-      <div className="future-sources" aria-label="Sources being explored">
-        <span>Planned / explored</span>
-        {mockFutureSources.map((source) => (
-          <span key={source}>{source}</span>
-        ))}
-        <span>+ More</span>
-      </div>
-      <p className="sources-showcase__note">
-        Future sources are visual roadmap placeholders and are not connected to
-        event results.
-      </p>
     </section>
   )
 }
