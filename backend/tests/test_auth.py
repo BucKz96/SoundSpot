@@ -48,10 +48,12 @@ class AuthenticationRouteTests(unittest.TestCase):
 
         self.original_secret = settings.jwt_secret_key
         self.original_app_env = settings.app_env
+        self.original_auth_cookie_samesite = settings.auth_cookie_samesite
         self.original_email_provider = settings.email_provider
         self.original_frontend_url = settings.frontend_url
         settings.jwt_secret_key = "test-secret-key-with-at-least-32-bytes"
         settings.app_env = "development"
+        settings.auth_cookie_samesite = ""
         settings.email_provider = "log"
         settings.frontend_url = "http://localhost:5173"
 
@@ -70,6 +72,7 @@ class AuthenticationRouteTests(unittest.TestCase):
         app.dependency_overrides.clear()
         settings.jwt_secret_key = self.original_secret
         settings.app_env = self.original_app_env
+        settings.auth_cookie_samesite = self.original_auth_cookie_samesite
         settings.email_provider = self.original_email_provider
         settings.frontend_url = self.original_frontend_url
 
@@ -105,6 +108,22 @@ class AuthenticationRouteTests(unittest.TestCase):
             "httponly",
             response.headers["set-cookie"].casefold(),
         )
+        self.assertIn(
+            "samesite=lax",
+            response.headers["set-cookie"].casefold(),
+        )
+
+    def test_register_sets_cross_site_cookie_attributes_in_production(self) -> None:
+        settings.app_env = "production"
+        settings.auth_cookie_samesite = ""
+
+        response = self.register(email="prod@example.com")
+
+        self.assertEqual(response.status_code, 201)
+        set_cookie = response.headers["set-cookie"].casefold()
+        self.assertIn("secure", set_cookie)
+        self.assertIn("httponly", set_cookie)
+        self.assertIn("samesite=none", set_cookie)
 
     def test_register_creates_email_verification_token(self) -> None:
         sent_tokens = []

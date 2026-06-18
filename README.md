@@ -179,6 +179,7 @@ Production notes:
 - Production cookies must be Secure.
 - Provider API keys must be stored as backend environment variables.
 - Email verification and password reset require a transactional email provider in production.
+- Deployment setup details are documented in `docs/deployment.md`.
 
 ## Product Status
 

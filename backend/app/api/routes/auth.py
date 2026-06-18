@@ -66,7 +66,7 @@ def _set_auth_cookie(response: Response, token: str) -> None:
         max_age=max_age,
         httponly=True,
         secure=settings.auth_cookie_secure,
-        samesite="lax",
+        samesite=settings.resolved_auth_cookie_samesite,
         path="/",
     )
 
@@ -305,6 +305,6 @@ def logout(response: Response) -> LogoutResponse:
         path="/",
         httponly=True,
         secure=settings.auth_cookie_secure,
-        samesite="lax",
+        samesite=settings.resolved_auth_cookie_samesite,
     )
     return LogoutResponse(message="Signed out.")
