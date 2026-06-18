@@ -14,17 +14,17 @@
   <img src="frontend/public/providers/spotify.png" alt="Spotify" height="50" />
 </p>
 
-SoundSpot is a fullstack product/portfolio project built to help users discover live music, nightlife and cultural events through an interactive map. It combines external event sources, Spotify artist enrichment, account features and a responsive React interface into a V1-ready discovery experience.
+SoundSpot is a fullstack product/portfolio project built to help users discover live music, nightlife and cultural events through an interactive map. It combines external event sources, Spotify artist enrichment, account features and a responsive React interface into a live V1 discovery experience.
 
 SoundSpot does not sell tickets directly. When available, event actions redirect users to official provider or ticketing pages. Event availability, pricing and metadata depend on third-party sources.
 
 ## Live Demo
 
-Live demo URLs will be updated once the V1 deployment is finalized.
+SoundSpot V1 is live in production on the `soundspot.app` domain.
 
-- Frontend demo: `https://your-vercel-app.vercel.app`
-
-Custom domain: not configured yet.
+- Web app: https://www.soundspot.app
+- API: https://api.soundspot.app
+- API health: https://api.soundspot.app/health
 
 ## Product Overview
 
@@ -79,6 +79,12 @@ The product focuses on discovery and redirection rather than ticket checkout. Pr
 - Event favorites
 - My Favorites page
 - Responsive UI
+- Production custom domain
+- Resend transactional emails
+- Basic in-memory rate limiting
+- Provider failure handling
+- Ticketmaster 429 cooldown
+- CARTO/Leaflet map tile bounds hardening
 - Public pages: About, Contact, Privacy, Legal
 
 ## Tech Stack
@@ -107,25 +113,28 @@ The product focuses on discovery and redirection rather than ticket checkout. Pr
 - Shotgun
 - OpenAgenda
 - Spotify
+- Resend
 
 ### Deployment
 
 - Vercel frontend
 - Render backend
-- PostgreSQL database
+- PostgreSQL database on Render
 
 ## Architecture Overview
 
 ```text
 React/Vite frontend on Vercel
+https://www.soundspot.app
         |
         | HTTPS API calls
         v
 FastAPI backend on Render
+https://api.soundspot.app
         |
         | SQLAlchemy / Alembic
         v
-PostgreSQL database
+PostgreSQL database on Render
 
 External data:
   - Ticketmaster
@@ -135,6 +144,8 @@ External data:
 ```
 
 The frontend consumes the backend API. The backend normalizes external provider data, keeps provider credentials server-side, handles authentication flows and persists user accounts, auth tokens and favorites in PostgreSQL.
+
+Production authentication uses JWT sessions stored in Secure HttpOnly cookies, with SameSite=None configured for the Vercel frontend and Render API domains. V1 also includes basic in-memory rate limiting on backend endpoints.
 
 Most event data is fetched or derived from external providers, so coverage and freshness depend on third-party availability.
 
@@ -164,28 +175,33 @@ SoundSpot includes a complete V1 account flow:
 
 Passwords are hashed and are never stored in plain text.
 
-## Deployment Target
+## Production Deployment
 
-Current deployment target:
+Current production deployment:
 
-- Frontend: Vercel
-- Backend API: Render
-- Database: PostgreSQL
-- Custom domain: not configured yet
+- Frontend: React/Vite on Vercel
+- Web domain: https://www.soundspot.app
+- Backend API: FastAPI on Render
+- API domain: https://api.soundspot.app
+- Database: PostgreSQL on Render
+- Migrations: Alembic
+- Emails: Resend
+- Auth: JWT HttpOnly cookies
 
 Production notes:
 
-- CORS must match the Vercel frontend URL.
-- Production cookies must be Secure.
+- CORS must match the Vercel frontend domain.
+- Production cookies must be Secure and SameSite=None for cross-site Vercel to Render auth.
 - Provider API keys must be stored as backend environment variables.
-- Email verification and password reset require a transactional email provider in production.
+- Email verification and password reset are handled through Resend transactional emails.
+- V1 rate limiting is in-memory and should move to Redis or Upstash if traffic scales.
 - Deployment setup details are documented in `docs/deployment.md`.
 
 ## Product Status
 
-SoundSpot is in active V1 preparation.
+SoundSpot V1 is live in production at https://www.soundspot.app.
 
-Implemented V1 scope:
+Live V1 scope:
 
 - Landing page
 - Public pages
@@ -200,36 +216,38 @@ Implemented V1 scope:
 - My Favorites
 - Responsive UI polish
 - Provider stability improvements
+- Production deployment on Vercel and Render
+- Custom domain
+- Resend transactional emails
+- Basic backend rate limiting
+- Real event data from Ticketmaster, Shotgun and OpenAgenda
 
 ## Known Limitations
 
-- No custom domain is configured yet.
 - Event data depends on third-party providers.
 - Provider rate limits can affect availability.
 - Not every event has an image.
 - Venue search is prepared but not fully available.
-- Production email provider setup still needs to be configured.
+- V1 rate limiting is in-memory and should move to Redis or Upstash if traffic scales.
 - Map styling is Leaflet-based, not a fully custom vector map.
 - External provider links may change, expire or become unavailable.
 
 ## Roadmap
 
-### V1 Before Public Release
-
-- Production deployment
-- Production database
-- Transactional email provider
-- Final QA
-- Screenshots/demo video
-
-### Next
+### Post-V1
 
 - Better venue search
 - Account settings and deletion
 - Improved provider monitoring
+- Monitoring and analytics
+- Distributed Redis/Upstash rate limiting
 - Advanced filters
 - Recommendations
+- Alerts and notifications
+- Deeper personalization
+- More event sources
 - MapLibre/vector map exploration
+- Portfolio case study
 
 ## Local Development
 
@@ -255,6 +273,6 @@ backend\venv\Scripts\python.exe -m unittest discover backend\tests
 
 ## Contact / Project Note
 
-SoundSpot is built as a fullstack product/portfolio project to demonstrate product thinking, frontend implementation, backend API design, external API integration, authentication, persistence, deployment preparation and release-focused polish.
+SoundSpot is built as a fullstack product/portfolio project to demonstrate product thinking, frontend implementation, backend API design, external API integration, authentication, persistence, production deployment and release-focused polish.
 
-Contact details will be updated before public launch.
+Contact and portfolio links can be added as the public case study evolves.
