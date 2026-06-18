@@ -13,8 +13,8 @@ import ProviderBadge from './ProviderBadge'
 import useEventFavoriteAction from './useEventFavoriteAction'
 
 const DEFAULT_CENTER = [20, 10]
-const DEFAULT_ZOOM = 2
-const MIN_MAP_ZOOM = 2
+const DEFAULT_ZOOM = 3
+const MIN_MAP_ZOOM = 3
 const MAX_SIDEBAR_EVENTS = 10
 const WORLD_BOUNDS = [
   [-85, -180],
