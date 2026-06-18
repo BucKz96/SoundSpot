@@ -23,7 +23,6 @@ SoundSpot does not sell tickets directly. When available, event actions redirect
 SoundSpot V1 is live in production on the `soundspot.app` domain.
 
 - Web app: https://www.soundspot.app
-- API: https://api.soundspot.app
 - API health: https://api.soundspot.app/health
 
 ## Product Overview
