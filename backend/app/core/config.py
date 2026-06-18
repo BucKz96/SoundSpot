@@ -5,12 +5,19 @@ class Settings(BaseSettings):
     app_name: str = "SoundSpot"
     app_env: str = "development"
     frontend_url: str = "http://localhost:5173"
+    email_provider: str = "log"
+    email_from: str = "SoundSpot <noreply@soundspot.local>"
+    resend_api_key: str = ""
     database_url: str = (
         "postgresql+psycopg://soundspot:soundspot@localhost:5432/soundspot"
     )
     jwt_secret_key: str = ""
     jwt_algorithm: str = "HS256"
     jwt_access_token_expire_minutes: int = 10080
+    auth_cookie_samesite: str = ""
+    rate_limit_enabled: bool = True
+    email_verification_token_expire_minutes: int = 1440
+    password_reset_token_expire_minutes: int = 30
     ticketmaster_api_key: str = ""
     openagenda_api_key: str = ""
     openagenda_agenda_uids: str = ""
@@ -42,9 +49,7 @@ class Settings(BaseSettings):
     )
     geocoding_url: str = "https://nominatim.openstreetmap.org/search"
     geocoding_user_agent: str = "SoundSpot/1.0"
-    backend_cors_origins: str = (
-        "http://localhost:5173,http://127.0.0.1:5173,https://soundspot.vercel.app"
-    )
+    backend_cors_origins: str = "http://localhost:5173,http://127.0.0.1:5173"
 
     @property
     def cors_origins(self) -> list[str]:
@@ -66,6 +71,17 @@ class Settings(BaseSettings):
     @property
     def auth_cookie_secure(self) -> bool:
         return self.app_env.strip().casefold() == "production"
+
+    @property
+    def resolved_auth_cookie_samesite(self) -> str:
+        configured_samesite = self.auth_cookie_samesite.strip().casefold()
+        if configured_samesite in {"lax", "strict", "none"}:
+            return configured_samesite
+
+        if self.app_env.strip().casefold() == "production":
+            return "none"
+
+        return "lax"
 
     @property
     def discovery_seed_cities(self) -> list[str]:

@@ -6,16 +6,16 @@ import {
   Marker,
   TileLayer,
   useMap,
-  useMapEvents,
 } from 'react-leaflet'
+import { getEventImageUrl } from '../utils/eventDisplay'
 import { groupEventsByVenue } from '../utils/eventGrouping'
 import ProviderBadge from './ProviderBadge'
+import useEventFavoriteAction from './useEventFavoriteAction'
 
 const DEFAULT_CENTER = [20, 10]
 const DEFAULT_ZOOM = 2
 const MIN_MAP_ZOOM = 2
-const DISABLE_CLUSTERING_AT_ZOOM = 15
-const MAX_CLUSTER_RADIUS = 80
+const MAX_SIDEBAR_EVENTS = 10
 const WORLD_BOUNDS = [
   [-85, -180],
   [85, 180],
@@ -64,19 +64,8 @@ function formatEventTime(event) {
   return date || time || 'Date TBA'
 }
 
-function getEventImage(event) {
-  return (
-    event.image_url ||
-    event.image ||
-    event.imageUrl ||
-    event.thumbnail_url ||
-    event.thumbnail ||
-    ''
-  )
-}
-
 function EventThumbnail({ event }) {
-  const imageUrl = getEventImage(event)
+  const imageUrl = getEventImageUrl(event)
   const [failedImageUrl, setFailedImageUrl] = useState('')
   const showImage = Boolean(imageUrl) && failedImageUrl !== imageUrl
 
@@ -108,6 +97,55 @@ function getEventKey(event) {
   )
 }
 
+function SidebarFavoriteButton({ event }) {
+  const {
+    favorite,
+    favoritePending,
+    favoriteError,
+    toggleFavorite,
+  } = useEventFavoriteAction(event)
+  const title = (event.name || '').trim() || 'Untitled event'
+  const favoriteLabel = favorite
+    ? `Remove ${title} from favorites`
+    : `Add ${title} to favorites`
+
+  return (
+    <div className="venue-group-panel__favorite-wrap">
+      <button
+        className={[
+          'venue-group-panel__favorite',
+          favorite ? 'is-favorite' : '',
+          favoritePending ? 'is-loading' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        type="button"
+        onClick={toggleFavorite}
+        disabled={favoritePending}
+        aria-pressed={favorite}
+        aria-label={favoritePending ? 'Updating favorite' : favoriteLabel}
+        title={
+          favoritePending
+            ? 'Updating favorite'
+            : favorite
+              ? 'Remove from favorites'
+              : 'Add to favorites'
+        }
+      >
+        <span className="venue-group-panel__favorite-spinner" aria-hidden="true" />
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 20.6 3.8 13A5.4 5.4 0 0 1 11.4 5.3l.6.7.6-.7a5.4 5.4 0 0 1 7.6 7.7L12 20.6Z" />
+        </svg>
+      </button>
+      {favoriteError ? (
+        <p className="venue-group-panel__favorite-error" role="alert">
+          {favoriteError}
+        </p>
+      ) : null}
+    </div>
+  )
+}
+
 function getSourceMarkerClass(source) {
   const normalizedSource = (source || '').trim().toLowerCase()
 
@@ -127,152 +165,179 @@ function getGroupSource(group) {
   return sources.size === 1 ? Array.from(sources)[0] : ''
 }
 
-function createVenueIcon(group, isDiscovery) {
+const LOCAL_CLUSTER_MIN_ZOOM = 11
+const GLOBAL_CLUSTER_MAX_ZOOM = LOCAL_CLUSTER_MIN_ZOOM - 1
+
+function getGlobalClusterCellSize(zoom) {
+  if (zoom <= 2) return 92
+  if (zoom <= 3) return 82
+  if (zoom <= 4) return 72
+  if (zoom <= 5) return 62
+  if (zoom <= 6) return 54
+  if (zoom <= 7) return 46
+  if (zoom <= 8) return 38
+  if (zoom <= 9) return 32
+  return 26
+}
+
+function getGlobalClusterIconSize(count) {
+  if (count >= 80) return 60
+  if (count >= 40) return 54
+  if (count >= 18) return 46
+  if (count >= 8) return 38
+  return 32
+}
+
+function createGlobalClusterIcon(cluster, isActive = false) {
+  const count = cluster.events.length
+  const isCluster = count > 1
+  const size = isCluster ? getGlobalClusterIconSize(count) : 18
+
+  return L.divIcon({
+    className: [
+      'event-map-global-marker',
+      isCluster ? 'event-map-global-marker--cluster' : 'event-map-global-marker--ping',
+      count >= 40 ? 'event-map-global-marker--large' : '',
+      isActive ? 'event-map-global-marker--active' : '',
+    ]
+      .filter(Boolean)
+      .join(' '),
+    html: `<span><b></b><i></i>${isCluster ? `<em>${count}</em>` : ''}</span>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  })
+}
+
+function buildGlobalClusters(groups, map, zoom) {
+  const cellSize = getGlobalClusterCellSize(zoom)
+  const clustersByCell = new Map()
+
+  groups.forEach((group) => {
+    const point = map.project([group.latitude, group.longitude], zoom)
+    const cellKey = `${Math.floor(point.x / cellSize)}:${Math.floor(
+      point.y / cellSize,
+    )}`
+    const weight = Math.max(group.events.length, 1)
+    const existingCluster = clustersByCell.get(cellKey)
+
+    if (existingCluster) {
+      existingCluster.latitude += group.latitude * weight
+      existingCluster.longitude += group.longitude * weight
+      existingCluster.weight += weight
+      existingCluster.groupKeys.push(group.key)
+      existingCluster.events.push(...group.events)
+      return
+    }
+
+    clustersByCell.set(cellKey, {
+      key: `global:${zoom}:${cellKey}`,
+      latitude: group.latitude * weight,
+      longitude: group.longitude * weight,
+      weight,
+      groupKeys: [group.key],
+      events: [...group.events],
+    })
+  })
+
+  return Array.from(clustersByCell.values()).map((cluster) => ({
+    ...cluster,
+    latitude: cluster.latitude / cluster.weight,
+    longitude: cluster.longitude / cluster.weight,
+  }))
+}
+
+function createVenueIcon(group, isDiscovery, isActive = false, showClusterCount = true) {
   const count = group.events.length
   const sourceClass = getSourceMarkerClass(getGroupSource(group))
+  const shouldShowCluster = count > 1 && showClusterCount
   const groupedClass =
-    count > 1
+    shouldShowCluster
       ? 'event-map-marker--grouped event-map-marker--venue-cluster'
       : ''
+  const clusterSizeClass =
+    shouldShowCluster && count >= 10
+      ? 'event-map-marker--venue-cluster-large'
+      : shouldShowCluster && count >= 5
+        ? 'event-map-marker--venue-cluster-medium'
+        : ''
   const approximateClass = group.isLocationApproximate
     ? 'event-map-marker--approximate'
     : ''
   const discoveryClass = isDiscovery ? 'event-map-marker--discovery' : ''
-  const size = isDiscovery ? (count > 1 ? 24 : 18) : count > 1 ? 34 : 26
+  const activeClass = isActive ? 'event-map-marker--active' : ''
+  const size =
+    shouldShowCluster
+      ? count >= 10
+        ? 31
+        : count >= 5
+          ? 27
+          : 23
+      : isDiscovery
+        ? 16
+        : 20
 
   return L.divIcon({
     className: [
       'event-map-marker',
       sourceClass,
       groupedClass,
+      clusterSizeClass,
       approximateClass,
       discoveryClass,
+      activeClass,
     ]
       .filter(Boolean)
       .join(' '),
-    html: `<span><b></b><i></i>${count > 1 ? `<em>${count}</em>` : ''}</span>`,
+    html: `<span><b></b><i></i>${shouldShowCluster ? `<em>${count}</em>` : ''}</span>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
   })
 }
 
-function createClusterIcon(eventCount) {
-  const sizeClass =
-    eventCount >= 50 ? 'large' : eventCount >= 10 ? 'medium' : 'small'
-  const size = eventCount >= 50 ? 52 : eventCount >= 10 ? 46 : 40
-
-  return L.divIcon({
-    className: `event-map-cluster event-map-cluster--${sizeClass}`,
-    html: `<span>${eventCount}</span>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  })
-}
-
-function clusterVenueGroups(groups, map, zoom) {
-  if (zoom >= DISABLE_CLUSTERING_AT_ZOOM) {
-    return groups.map((group) => ({
-      key: group.key,
-      type: 'venue',
-      latitude: group.latitude,
-      longitude: group.longitude,
-      groups: [group],
-      eventCount: group.events.length,
-    }))
-  }
-
-  const clusters = []
-
-  groups.forEach((group) => {
-    const point = map.project([group.latitude, group.longitude], zoom)
-    const nearbyCluster = clusters.find((cluster) => {
-      const deltaX = cluster.point.x - point.x
-      const deltaY = cluster.point.y - point.y
-      return Math.hypot(deltaX, deltaY) <= MAX_CLUSTER_RADIUS
-    })
-
-    if (nearbyCluster) {
-      nearbyCluster.groups.push(group)
-      nearbyCluster.eventCount += group.events.length
-      const groupCount = nearbyCluster.groups.length
-      nearbyCluster.point = L.point(
-        (nearbyCluster.point.x * (groupCount - 1) + point.x) / groupCount,
-        (nearbyCluster.point.y * (groupCount - 1) + point.y) / groupCount,
-      )
-      const center = map.unproject(nearbyCluster.point, zoom)
-      nearbyCluster.latitude = center.lat
-      nearbyCluster.longitude = center.lng
-      return
-    }
-
-    clusters.push({
-      key: `cluster:${group.key}`,
-      type: 'cluster',
-      latitude: group.latitude,
-      longitude: group.longitude,
-      point,
-      groups: [group],
-      eventCount: group.events.length,
-    })
-  })
-
-  return clusters.map((cluster) => ({
-    ...cluster,
-    type: cluster.groups.length > 1 ? 'cluster' : 'venue',
-  }))
-}
-
-function VenueMapLayer({ groups, isDiscovery, onClusterSelect, onVenueSelect }) {
+function VenueMapLayer({
+  groups,
+  isDiscovery,
+  focusedEventKey,
+  onVenueSelect,
+  onEventOpen,
+}) {
   const map = useMap()
   const [zoom, setZoom] = useState(map.getZoom())
 
-  useMapEvents({
-    zoomend() {
-      const nextZoom = map.getZoom()
-      setZoom((currentZoom) => (currentZoom === nextZoom ? currentZoom : nextZoom))
-    },
-  })
-
-  const visibleMarkers = useMemo(
-    () => clusterVenueGroups(groups, map, zoom),
-    [groups, map, zoom],
-  )
-
-  return visibleMarkers.map((item) => {
-    if (item.type === 'cluster') {
-      const bounds = L.latLngBounds(
-        item.groups.map((group) => [group.latitude, group.longitude]),
-      )
-      return (
-        <Marker
-          key={`${item.key}:${zoom}`}
-          position={[item.latitude, item.longitude]}
-          icon={createClusterIcon(item.eventCount)}
-          eventHandlers={{
-            click: () => {
-              onClusterSelect(item.groups)
-              map.flyToBounds(bounds, {
-                animate: true,
-                duration: 0.7,
-                padding: [32, 32],
-                maxZoom: Math.min(zoom + 3, DISABLE_CLUSTERING_AT_ZOOM),
-              })
-            },
-          }}
-          title={`${item.eventCount} events`}
-        />
-      )
+  useEffect(() => {
+    const updateZoom = () => {
+      setZoom(map.getZoom())
     }
 
-    const group = item.groups[0]
+    updateZoom()
+    map.on('zoomend', updateZoom)
+
+    return () => {
+      map.off('zoomend', updateZoom)
+    }
+  }, [map])
+
+  const showLocalClusters = zoom >= LOCAL_CLUSTER_MIN_ZOOM
+
+  if (zoom < LOCAL_CLUSTER_MIN_ZOOM) return null
+
+  return groups.map((group) => {
     return (
       <Marker
         key={group.key}
         position={[group.latitude, group.longitude]}
-        icon={createVenueIcon(group, isDiscovery)}
+        icon={createVenueIcon(
+          group,
+          isDiscovery,
+          group.events.some((event) => getEventKey(event) === focusedEventKey),
+          showLocalClusters,
+        )}
         eventHandlers={{
           click: () => {
             onVenueSelect(group)
+            if (group.events.length === 1) {
+              onEventOpen?.(group.events[0])
+            }
             if (map.getZoom() < 13) {
               map.flyTo([group.latitude, group.longitude], 14, {
                 animate: true,
@@ -292,6 +357,108 @@ function VenueMapLayer({ groups, isDiscovery, onClusterSelect, onVenueSelect }) 
       />
     )
   })
+}
+
+function GlobalClusterLayer({
+  groups,
+  selectedGroupKeys,
+  onClusterSelect,
+  onEventOpen,
+}) {
+  const map = useMap()
+  const [zoom, setZoom] = useState(map.getZoom())
+
+  useEffect(() => {
+    const updateZoom = () => {
+      setZoom(map.getZoom())
+    }
+
+    updateZoom()
+    map.on('zoomend', updateZoom)
+
+    return () => {
+      map.off('zoomend', updateZoom)
+    }
+  }, [map])
+
+  const clusters = useMemo(() => {
+    if (zoom > GLOBAL_CLUSTER_MAX_ZOOM) return []
+    return buildGlobalClusters(groups, map, zoom)
+  }, [groups, map, zoom])
+
+  if (zoom > GLOBAL_CLUSTER_MAX_ZOOM) return null
+
+  return clusters.map((cluster) => {
+    const isActive = cluster.groupKeys.some((key) => selectedGroupKeys.has(key))
+    const isCluster = cluster.events.length > 1
+
+    return (
+      <Marker
+        key={cluster.key}
+        position={[cluster.latitude, cluster.longitude]}
+        icon={createGlobalClusterIcon(cluster, isActive)}
+        eventHandlers={{
+          click: () => {
+            onClusterSelect(cluster)
+            if (!isCluster) {
+              onEventOpen?.(cluster.events[0])
+              map.flyTo([cluster.latitude, cluster.longitude], 13, {
+                animate: true,
+                duration: 0.7,
+              })
+              return
+            }
+
+            const bounds = L.latLngBounds(
+              groups
+                .filter((group) => cluster.groupKeys.includes(group.key))
+                .map((group) => [group.latitude, group.longitude]),
+            )
+
+            map.flyToBounds(bounds, {
+              animate: true,
+              duration: 0.75,
+              padding: [54, 54],
+              maxZoom: Math.min(zoom + 3, GLOBAL_CLUSTER_MAX_ZOOM + 1),
+            })
+          },
+        }}
+        title={`${cluster.events.length} event${
+          cluster.events.length === 1 ? '' : 's'
+        } in this area`}
+      />
+    )
+  })
+}
+
+function getDistanceFromCenter(event, center) {
+  const deltaLatitude = Number(event.latitude) - center.lat
+  const deltaLongitude = Number(event.longitude) - center.lng
+
+  return Math.hypot(deltaLatitude, deltaLongitude)
+}
+
+function MapViewportController({ onViewportChange }) {
+  const map = useMap()
+
+  useEffect(() => {
+    const updateViewport = () => {
+      onViewportChange({
+        bounds: map.getBounds(),
+        center: map.getCenter(),
+        zoom: map.getZoom(),
+      })
+    }
+
+    updateViewport()
+    map.on('moveend zoomend', updateViewport)
+
+    return () => {
+      map.off('moveend zoomend', updateViewport)
+    }
+  }, [map, onViewportChange])
+
+  return null
 }
 
 function GlobalGlowMarkers() {
@@ -409,12 +576,40 @@ function MapFocusController({ event }) {
   return null
 }
 
+function MapLabelDensityController() {
+  const map = useMap()
+
+  useEffect(() => {
+    const container = map.getContainer()
+
+    function updateLabelDensity() {
+      const zoom = map.getZoom()
+      container.classList.toggle('event-map--labels-regional', zoom >= 5)
+      container.classList.toggle('event-map--labels-local', zoom >= 9)
+    }
+
+    updateLabelDensity()
+    map.on('zoomend', updateLabelDensity)
+
+    return () => {
+      map.off('zoomend', updateLabelDensity)
+      container.classList.remove(
+        'event-map--labels-regional',
+        'event-map--labels-local',
+      )
+    }
+  }, [map])
+
+  return null
+}
+
 function MapEventsPanel({
   title,
   subtitle,
   events,
   selectedEventKey,
   onEventFocus,
+  onEventOpen,
   onClear,
   closable = true,
 }) {
@@ -453,7 +648,10 @@ function MapEventsPanel({
               <button
                 type="button"
                 className="venue-group-panel__event-focus"
-                onClick={() => onEventFocus(event)}
+                onClick={() => {
+                  onEventFocus(event)
+                  onEventOpen?.(event)
+                }}
               >
                 <h4>{event.name || 'Untitled event'}</h4>
                 <p>{formatEventTime(event)}</p>
@@ -462,6 +660,7 @@ function MapEventsPanel({
                   {(event.city || '').trim() || 'City unavailable'}
                 </p>
               </button>
+              <SidebarFavoriteButton event={event} />
               <ProviderBadge
                 source={event.source}
                 href={eventUrl}
@@ -483,9 +682,11 @@ function MapPreview({
   hasActiveFilters = false,
   searchValue = '',
   discoveryError = '',
+  onEventOpen,
 }) {
   const [mapSelection, setMapSelection] = useState(null)
   const [focusedEventKey, setFocusedEventKey] = useState('')
+  const [mapViewport, setMapViewport] = useState(null)
   const geolocatedEvents = useMemo(
     () =>
       events
@@ -503,27 +704,48 @@ function MapPreview({
   )
   const selectedGroups = useMemo(
     () =>
-      mapSelection?.groupKeys
-        .map((key) => venueGroups.find((group) => group.key === key))
-        .filter(Boolean) || [],
+      mapSelection
+        ? mapSelection.groupKeys
+            .map((key) => venueGroups.find((group) => group.key === key))
+            .filter(Boolean)
+        : [],
     [mapSelection, venueGroups],
   )
   const selectedEvents = useMemo(
     () => selectedGroups.flatMap((group) => group.events),
     [selectedGroups],
   )
-  const discoveryPanelEvents = useMemo(
-    () => geolocatedEvents.slice(0, 5),
-    [geolocatedEvents],
+  const selectedGroupKeys = useMemo(
+    () => new Set(mapSelection?.groupKeys || []),
+    [mapSelection],
+  )
+  const visibleEvents = useMemo(() => {
+    if (!mapViewport?.bounds || !mapViewport?.center) {
+      return geolocatedEvents.slice(0, MAX_SIDEBAR_EVENTS)
+    }
+
+    return geolocatedEvents
+      .filter((event) =>
+        mapViewport.bounds.contains([event.latitude, event.longitude]),
+      )
+      .sort(
+        (firstEvent, secondEvent) =>
+          getDistanceFromCenter(firstEvent, mapViewport.center) -
+          getDistanceFromCenter(secondEvent, mapViewport.center),
+      )
+  }, [geolocatedEvents, mapViewport])
+  const panelVisibleEvents = useMemo(
+    () => visibleEvents.slice(0, MAX_SIDEBAR_EVENTS),
+    [visibleEvents],
   )
   const focusedEvent = useMemo(
     () =>
-      selectedEvents.find((event) => getEventKey(event) === focusedEventKey) ||
+      geolocatedEvents.find((event) => getEventKey(event) === focusedEventKey) ||
       null,
-    [focusedEventKey, selectedEvents],
+    [focusedEventKey, geolocatedEvents],
   )
   useEffect(() => {
-    const selectionIsEmpty = mapSelection && selectedGroups.length === 0
+    const selectionIsEmpty = mapSelection && selectedEvents.length === 0
     const selectionShrank =
       mapSelection && selectedGroups.length !== mapSelection.groupKeys.length
     const focusedEventWasFilteredOut = focusedEventKey && !focusedEvent
@@ -548,31 +770,46 @@ function MapPreview({
     }, 0)
 
     return () => window.clearTimeout(timeoutId)
-  }, [focusedEvent, focusedEventKey, mapSelection, selectedGroups])
+  }, [
+    focusedEvent,
+    focusedEventKey,
+    mapSelection,
+    selectedGroups,
+    selectedEvents,
+  ])
   const panelEvents =
-    selectedEvents.length > 0 ? selectedEvents : discoveryPanelEvents
-  const panelTitle = !mapSelection
-    ? 'Events in this area'
-    : mapSelection.type === 'cluster'
-      ? 'Events in this area'
-      : selectedGroups[0]?.venue || 'Events at this venue'
-  const panelSubtitle = !mapSelection
-    ? `${venueGroups.length} venue${venueGroups.length === 1 ? '' : 's'}`
-    : mapSelection.type === 'cluster'
-      ? `${selectedGroups.length} venues`
-      : `${selectedGroups[0]?.city || 'City unavailable'} | ${
-          selectedEvents.length
-        } event${selectedEvents.length === 1 ? '' : 's'} at this venue`
-  const handleClusterSelect = useCallback((groups) => {
-    setMapSelection({
-      type: 'cluster',
-      groupKeys: groups.map((group) => group.key),
-    })
-    setFocusedEventKey('')
-  }, [])
+    selectedEvents.length > 0 ? selectedEvents : panelVisibleEvents
+  const panelTitle =
+    mapSelection?.type === 'venue'
+      ? 'Events at this venue'
+      : mapSelection?.type === 'global'
+        ? 'Events in this area'
+        : `${visibleEvents.length} event${
+            visibleEvents.length === 1 ? '' : 's'
+          } on this map area`
+  const panelSubtitle =
+    mapSelection?.type === 'venue'
+      ? `${selectedGroups[0]?.venue || 'Venue TBA'} | ${
+          selectedGroups[0]?.city || 'City unavailable'
+        } | ${selectedEvents.length} event${
+          selectedEvents.length === 1 ? '' : 's'
+        }`
+      : mapSelection?.type === 'global'
+        ? `${selectedGroups.length} venue${
+            selectedGroups.length === 1 ? '' : 's'
+          } clustered | ${selectedEvents.length} event${
+            selectedEvents.length === 1 ? '' : 's'
+          }`
+        : `Showing ${panelEvents.length} nearby event${
+            panelEvents.length === 1 ? '' : 's'
+          }`
   const handleVenueSelect = useCallback((group) => {
     setMapSelection({ type: 'venue', groupKeys: [group.key] })
-    setFocusedEventKey('')
+    setFocusedEventKey(getEventKey(group.events[0]))
+  }, [])
+  const handleGlobalClusterSelect = useCallback((cluster) => {
+    setMapSelection({ type: 'global', groupKeys: cluster.groupKeys })
+    setFocusedEventKey(getEventKey(cluster.events[0]))
   }, [])
   const handleEventFocus = useCallback((event) => {
     if (!isValidCoordinate(event.latitude, event.longitude)) return
@@ -626,8 +863,7 @@ function MapPreview({
             />
             <TileLayer
               className="event-map__label-tiles"
-              maxZoom={6}
-              opacity={0.34}
+              opacity={1}
               subdomains="abcd"
               noWrap
               url={CARTO_DARK_LABELS_TILES_URL}
@@ -636,14 +872,23 @@ function MapPreview({
               hasSidebar={hasSidebar}
               hasSearched={hasSearched}
             />
+            <MapViewportController onViewportChange={setMapViewport} />
             <MapAutoFit groups={venueGroups} hasSearched={hasSearched} />
             <MapFocusController event={focusedEvent} />
+            <MapLabelDensityController />
             {showGlobalFallback ? <GlobalGlowMarkers /> : null}
+            <GlobalClusterLayer
+              groups={venueGroups}
+              selectedGroupKeys={selectedGroupKeys}
+              onClusterSelect={handleGlobalClusterSelect}
+              onEventOpen={onEventOpen}
+            />
             <VenueMapLayer
               groups={venueGroups}
               isDiscovery={showGlobalDiscovery}
-              onClusterSelect={handleClusterSelect}
+              focusedEventKey={focusedEventKey}
               onVenueSelect={handleVenueSelect}
+              onEventOpen={onEventOpen}
             />
           </MapContainer>
           <div className="map-box__overlay" aria-hidden="true" />
@@ -685,6 +930,7 @@ function MapPreview({
           events={panelEvents}
           selectedEventKey={focusedEventKey}
           onEventFocus={handleEventFocus}
+          onEventOpen={onEventOpen}
           onClear={handleClearSelection}
           closable={Boolean(mapSelection)}
         />

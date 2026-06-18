@@ -3,9 +3,15 @@ import { createRoot } from 'react-dom/client'
 import 'leaflet/dist/leaflet.css'
 import './index.css'
 import App from './App.jsx'
+import AuthProvider from './auth/AuthProvider.jsx'
+import FavoritesProvider from './favorites/FavoritesProvider.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <AuthProvider>
+      <FavoritesProvider>
+        <App />
+      </FavoritesProvider>
+    </AuthProvider>
   </StrictMode>,
 )

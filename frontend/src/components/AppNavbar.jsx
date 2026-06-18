@@ -1,34 +1,156 @@
+import { useState } from 'react'
+import { useAuth } from '../auth/useAuth'
 import logo from '../assets/soundspot-logo.png'
 
-function AppNavbar() {
+function AppNavbar({
+  activeView = 'home',
+  onShowFavorites,
+  onExplore,
+  onLogoutSuccess,
+}) {
+  const {
+    user,
+    isAuthenticated,
+    isAuthLoading,
+    logout,
+    openAuthModal,
+  } = useAuth()
+  const [isLoggingOut, setIsLoggingOut] = useState(false)
+  const [logoutError, setLogoutError] = useState('')
+
+  function handleHomeAnchor(event, targetId) {
+    if (activeView !== 'favorites') return
+    event.preventDefault()
+    onExplore(targetId)
+  }
+
+  function handleExploreAction() {
+    if (onExplore) {
+      onExplore()
+      return
+    }
+
+    window.location.href = '/#explore-map'
+  }
+
+  async function handleLogout() {
+    setLogoutError('')
+    setIsLoggingOut(true)
+    try {
+      await logout()
+      onLogoutSuccess?.()
+    } catch {
+      setLogoutError('Sign out failed')
+    } finally {
+      setIsLoggingOut(false)
+    }
+  }
+
   return (
     <header className="app-navbar">
       <div className="app-navbar__inner">
-        <a className="app-navbar__brand" href="#explore" aria-label="SoundSpot home">
-          <img className="app-navbar__logo" src={logo} alt="SoundSpot" />
-          <span className="app-navbar__tagline">Explore live music around the world</span>
-        </a>
-
-        <nav className="app-navbar__nav" aria-label="Primary navigation">
-          <a href="#explore-map">Explore</a>
-          <a href="#how-it-works">How it works</a>
-          <a href="#sources">Sources</a>
-          <a href="#about">About</a>
           <a
-            href="https://github.com/BucKz96/SoundSpot"
-            target="_blank"
-            rel="noreferrer"
+            className="app-navbar__brand"
+            href="/"
+            aria-label="SoundSpot home"
+            onClick={(event) => handleHomeAnchor(event, 'explore')}
           >
-            GitHub
+            <img className="app-navbar__logo" src={logo} alt="SoundSpot" />
+            <span className="app-navbar__tagline">Explore live music around the world</span>
           </a>
-        </nav>
 
-        <div className="app-navbar__actions">
-          <button type="button" disabled title="Authentication is coming later">
-            Sign in
-          </button>
-          <a href="#explore-map">Get started</a>
-        </div>
+          <nav className="app-navbar__nav" aria-label="Primary navigation">
+            <a
+              href="/#explore-map"
+              onClick={(event) => handleHomeAnchor(event, 'explore-map')}
+            >
+              Explore
+            </a>
+            <a
+              href="/#how-it-works"
+              onClick={(event) => handleHomeAnchor(event, 'how-it-works')}
+            >
+              How it works
+            </a>
+            <a
+              href="/#sources"
+              onClick={(event) => handleHomeAnchor(event, 'sources')}
+            >
+              Sources
+            </a>
+            <a
+              href="/about"
+            >
+              About
+            </a>
+            <a
+              href="https://github.com/BucKz96/SoundSpot"
+              target="_blank"
+              rel="noreferrer"
+            >
+              GitHub
+            </a>
+          </nav>
+
+          <div className="app-navbar__actions">
+            {isAuthLoading ? (
+              <span className="app-navbar__auth-loading">Checking account...</span>
+            ) : isAuthenticated ? (
+              <>
+                <span className="app-navbar__user" title={user.email}>
+                  {user.display_name || user.email}
+                </span>
+                {logoutError ? (
+                  <span
+                    className="app-navbar__logout-error"
+                    role="alert"
+                    title="Unable to sign out. Please try again."
+                  >
+                    {logoutError}
+                  </span>
+                ) : null}
+                <button
+                  className={
+                    activeView === 'favorites'
+                      ? 'app-navbar__view-button is-active'
+                      : 'app-navbar__view-button'
+                  }
+                  type="button"
+                  onClick={onShowFavorites}
+                >
+                  My favorites
+                </button>
+                <button
+                  className="app-navbar__logout"
+                  type="button"
+                  onClick={handleLogout}
+                  disabled={isLoggingOut}
+                >
+                  {isLoggingOut ? 'Signing out...' : 'Logout'}
+                </button>
+                <button
+                  className="app-navbar__primary-action"
+                  type="button"
+                  onClick={handleExploreAction}
+                >
+                  Explore events
+                </button>
+              </>
+            ) : (
+              <>
+                <button type="button" onClick={() => openAuthModal('login')}>
+                  Sign in
+                </button>
+                <button
+                  className="app-navbar__primary-action"
+                  type="button"
+                  onClick={() => openAuthModal('register')}
+                >
+                  Get started
+                </button>
+              </>
+            )}
+          </div>
       </div>
     </header>
   )

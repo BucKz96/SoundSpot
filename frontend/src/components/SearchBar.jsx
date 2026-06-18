@@ -9,7 +9,7 @@ function SearchBar({ onSearch, loading }) {
     searchType === 'artist'
       ? 'Search an artist like Coldplay...'
       : searchType === 'venue'
-        ? 'Venue search is coming soon...'
+        ? 'Venue search - Soon available'
       : 'Search a city like London...'
 
   function handleSubmit(event) {
@@ -75,7 +75,7 @@ function SearchBar({ onSearch, loading }) {
       </div>
       {searchType === 'venue' ? (
         <p className="search-panel__notice" role="status">
-          Venue search is a product preview and is not connected yet.
+          Coming soon
         </p>
       ) : null}
     </form>

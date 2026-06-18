@@ -1,5 +1,12 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
+from app.core.config import settings
+from app.core.rate_limit import (
+    EVENTS_DISCOVERY_IP,
+    EVENTS_LIST_IP,
+    EVENTS_SEARCH_IP,
+    require_rate_limit,
+)
 from app.schemas.event import EventResponse
 from app.services.discovery_service import DiscoveryAPIError, get_discovery_events
 from app.services.event_aggregator_service import (
@@ -15,57 +22,37 @@ from app.utils.city_normalizer import normalize_city_name
 router = APIRouter(prefix="/events", tags=["events"])
 
 
-def get_mock_events() -> list[EventResponse]:
-    return [
-        EventResponse(
-            id="evt-001",
-            name="Electro Night Paris",
-            artist="Nova Pulse",
-            city="Paris",
-            country="France",
-            venue="Le Dome",
-            date="2026-06-14",
-            time="20:00",
-            latitude=48.8566,
-            longitude=2.3522,
-            ticket_url="https://example.com/tickets/evt-001",
-        ),
-        EventResponse(
-            id="evt-002",
-            name="Sunset Pop Live",
-            artist="Luna Waves",
-            city="Lyon",
-            country="France",
-            venue="Arena Lumiere",
-            date="2026-06-21",
-            time="19:30",
-            latitude=45.764,
-            longitude=4.8357,
-            ticket_url="https://example.com/tickets/evt-002",
-        ),
-        EventResponse(
-            id="evt-003",
-            name="Indie Sessions",
-            artist="The Urban Trees",
-            city="Berlin",
-            country="Germany",
-            venue="River Hall",
-            date="2026-06-30",
-            time="21:00",
-            latitude=52.52,
-            longitude=13.405,
-            ticket_url="https://example.com/tickets/evt-003",
-        ),
-    ]
+def has_discovery_provider_credentials() -> bool:
+    return bool(
+        (settings.ticketmaster_api_key or "").strip()
+        or (settings.shotgun_api_key or "").strip()
+        or (
+            (settings.openagenda_api_key or "").strip()
+            and settings.discovery_openagenda_seed_agenda_uids
+        )
+    )
+
+
+async def get_discovery_events_or_empty() -> list[EventResponse]:
+    if not has_discovery_provider_credentials():
+        return []
+
+    try:
+        return await get_discovery_events()
+    except DiscoveryAPIError:
+        return []
 
 
 @router.get("", response_model=list[EventResponse])
-def list_events() -> list[EventResponse]:
-    return get_mock_events()
+async def list_events(request: Request) -> list[EventResponse]:
+    require_rate_limit(request, EVENTS_LIST_IP)
+    return await get_discovery_events_or_empty()
 
 
 @router.get("/discovery", response_model=list[EventResponse])
-async def discovery_events() -> list[EventResponse]:
+async def discovery_events(request: Request) -> list[EventResponse]:
+    require_rate_limit(request, EVENTS_DISCOVERY_IP)
+
     try:
         return await get_discovery_events()
     except DiscoveryAPIError as exc:
@@ -74,9 +61,12 @@ async def discovery_events() -> list[EventResponse]:
 
 @router.get("/search", response_model=list[EventResponse])
 async def search_events(
+    request: Request,
     city: str | None = None,
     artist: str | None = None,
 ) -> list[EventResponse]:
+    require_rate_limit(request, EVENTS_SEARCH_IP)
+
     try:
         if city and city.strip():
             city_query = normalize_city_name(city)
@@ -85,7 +75,7 @@ async def search_events(
         if artist and artist.strip():
             return await search_events_by_artist(artist.strip())
 
-        return get_mock_events()
+        return await get_discovery_events_or_empty()
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except TicketmasterAPIError as exc:

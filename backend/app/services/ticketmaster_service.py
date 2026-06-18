@@ -1,5 +1,7 @@
 import calendar
+import logging
 from datetime import date
+from time import monotonic
 from unicodedata import normalize
 
 import httpx
@@ -12,10 +14,29 @@ from app.utils.genre_normalizer import normalize_genres
 TICKETMASTER_EVENTS_URL = "https://app.ticketmaster.com/discovery/v2/events.json"
 TICKETMASTER_PAGE_SIZE = 50
 TICKETMASTER_MAX_EVENTS_LIMIT = 150
+TICKETMASTER_RATE_LIMIT_COOLDOWN_SECONDS = 120
+logger = logging.getLogger(__name__)
+_rate_limited_until = 0.0
 
 
 class TicketmasterAPIError(Exception):
     """Raised when the Ticketmaster API call fails or returns an unexpected error."""
+
+
+class TicketmasterRateLimitError(TicketmasterAPIError):
+    """Raised when Ticketmaster returns HTTP 429."""
+
+
+def is_ticketmaster_rate_limited() -> bool:
+    return monotonic() < _rate_limited_until
+
+
+def _activate_rate_limit_cooldown() -> bool:
+    global _rate_limited_until
+
+    was_rate_limited = is_ticketmaster_rate_limited()
+    _rate_limited_until = monotonic() + TICKETMASTER_RATE_LIMIT_COOLDOWN_SECONDS
+    return not was_rate_limited
 
 
 def _safe_float(value: object) -> float:
@@ -85,6 +106,29 @@ def _extract_ticketmaster_genre_values(raw: dict) -> list[str]:
     return values
 
 
+def _extract_ticketmaster_image_url(raw: dict) -> str:
+    images = raw.get("images") or []
+    if not isinstance(images, list):
+        return ""
+
+    valid_images = [
+        image
+        for image in images
+        if isinstance(image, dict) and isinstance(image.get("url"), str)
+    ]
+    if not valid_images:
+        return ""
+
+    best_image = max(
+        valid_images,
+        key=lambda image: (
+            int(image.get("width") or 0) * int(image.get("height") or 0),
+            int(image.get("width") or 0),
+        ),
+    )
+    return best_image.get("url", "").strip()
+
+
 async def _resolve_event_coordinates(
     latitude: float,
     longitude: float,
@@ -146,6 +190,7 @@ async def _ticketmaster_event_to_response(raw: dict) -> EventResponse:
         latitude=latitude,
         longitude=longitude,
         ticket_url=raw.get("url") or "",
+        image_url=_extract_ticketmaster_image_url(raw),
         is_location_approximate=is_location_approximate,
         source="ticketmaster",
         genres=normalize_genres(_extract_ticketmaster_genre_values(raw)),
@@ -156,6 +201,11 @@ async def _search_ticketmaster_events(
     search_params: dict[str, object],
     max_events: int | None = None,
 ) -> list[EventResponse]:
+    if is_ticketmaster_rate_limited():
+        raise TicketmasterRateLimitError(
+            "Ticketmaster rate limited; temporarily skipping provider."
+        )
+
     api_key = (settings.ticketmaster_api_key or "").strip()
     if not api_key:
         raise ValueError(
@@ -197,6 +247,15 @@ async def _search_ticketmaster_events(
                 if isinstance(total_pages, int) and page_number >= total_pages - 1:
                     break
     except httpx.HTTPStatusError as exc:
+        if exc.response.status_code == 429:
+            if _activate_rate_limit_cooldown():
+                logger.warning(
+                    "Ticketmaster rate limited; temporarily skipping provider."
+                )
+            raise TicketmasterRateLimitError(
+                "Ticketmaster rate limited; temporarily skipping provider."
+            ) from exc
+
         raise TicketmasterAPIError(
             f"Ticketmaster API error (HTTP {exc.response.status_code})."
         ) from exc

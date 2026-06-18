@@ -4,6 +4,8 @@ import SearchBar from '../components/SearchBar'
 import MapPreview from '../components/MapPreview'
 import EventList from '../components/EventList'
 import EventFilters from '../components/EventFilters'
+import EventDetailsModal from '../components/EventDetailsModal'
+import FavoritesView from '../components/FavoritesView'
 import {
   AboutSoundSpot,
   AppFooter,
@@ -16,11 +18,12 @@ import {
 } from '../components/LandingSections'
 import { productBenefits } from '../data/landingData'
 import { useEffect, useMemo, useState } from 'react'
+import { useAuth } from '../auth/useAuth'
 import { getDiscoveryEvents, getEventsByArtist, getEventsByCity } from '../services/api'
+import { buildFeaturedEvents, buildTrendingCities } from '../utils/eventDisplay'
 
 const EVENTS_PER_PAGE = 12
 const DEFAULT_GENRE_FILTER = 'all'
-const DEFAULT_SOURCE_FILTER = 'all'
 const DEFAULT_QUICK_FILTER = ''
 const DATE_QUICK_FILTERS = new Set(['tonight', 'week', 'month'])
 
@@ -76,6 +79,39 @@ function addDays(date, days) {
   return nextDate
 }
 
+function EmailVerificationBanner() {
+  const { resendVerificationEmail, user } = useAuth()
+  const [status, setStatus] = useState('')
+  const [isSending, setIsSending] = useState(false)
+
+  if (!user || user.is_email_verified !== false) return null
+
+  async function handleResend() {
+    setStatus('')
+    setIsSending(true)
+    try {
+      const response = await resendVerificationEmail()
+      setStatus(response?.message || 'Verification email sent.')
+    } catch {
+      setStatus('Unable to send verification email right now.')
+    } finally {
+      setIsSending(false)
+    }
+  }
+
+  return (
+    <div className="email-verification-banner" role="status">
+      <div>
+        <p>Please verify your email to secure your account.</p>
+        {status ? <span>{status}</span> : null}
+      </div>
+      <button type="button" onClick={handleResend} disabled={isSending}>
+        {isSending ? 'Sending...' : 'Resend email'}
+      </button>
+    </div>
+  )
+}
+
 function getQuickDateRange(filter, today = new Date()) {
   const currentDate = new Date(
     today.getFullYear(),
@@ -115,6 +151,20 @@ function normalizeFilterText(value) {
     .toLowerCase()
 }
 
+function formatMapTitle(value) {
+  const normalizedValue = (value || '').trim()
+  if (!normalizedValue) return ''
+
+  if (normalizedValue !== normalizedValue.toLowerCase()) {
+    return normalizedValue
+  }
+
+  return normalizedValue.replace(/\S+/g, (word) => {
+    const [firstLetter, ...rest] = word
+    return `${firstLetter.toLocaleUpperCase()}${rest.join('')}`
+  })
+}
+
 function matchesCategoryQuickFilter(event, filter) {
   if (!filter) return true
 
@@ -145,6 +195,8 @@ function matchesCategoryQuickFilter(event, filter) {
 }
 
 function HomePage() {
+  const { isAuthenticated } = useAuth()
+  const [activeView, setActiveView] = useState('home')
   const [events, setEvents] = useState([])
   const [discoveryEvents, setDiscoveryEvents] = useState([])
   const [discoveryLoading, setDiscoveryLoading] = useState(true)
@@ -153,16 +205,16 @@ function HomePage() {
   const [error, setError] = useState('')
   const [lastSearch, setLastSearch] = useState({ type: 'city', value: '' })
   const [hasSearched, setHasSearched] = useState(false)
+  const [eventViewMode, setEventViewMode] = useState('map')
+  const [selectedEventDetails, setSelectedEventDetails] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedGenre, setSelectedGenre] = useState(DEFAULT_GENRE_FILTER)
-  const [selectedSource, setSelectedSource] = useState(DEFAULT_SOURCE_FILTER)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [activeQuickFilter, setActiveQuickFilter] = useState(DEFAULT_QUICK_FILTER)
   const activeEvents = hasSearched ? events : discoveryEvents
   const hasActiveFilters = Boolean(
     selectedGenre !== DEFAULT_GENRE_FILTER ||
-      selectedSource !== DEFAULT_SOURCE_FILTER ||
       dateFrom ||
       dateTo ||
       activeQuickFilter,
@@ -175,13 +227,9 @@ function HomePage() {
         const matchesGenre =
           selectedGenre === DEFAULT_GENRE_FILTER ||
           eventGenres.includes(selectedGenre)
-        const matchesSource =
-          selectedSource === DEFAULT_SOURCE_FILTER ||
-          (event.source || '').trim().toLowerCase() === selectedSource
 
         return (
           matchesGenre &&
-          matchesSource &&
           matchesDateRange(event.date, dateFrom, dateTo) &&
           matchesCategoryQuickFilter(
             event,
@@ -192,7 +240,6 @@ function HomePage() {
     [
       activeEvents,
       selectedGenre,
-      selectedSource,
       dateFrom,
       dateTo,
       activeQuickFilter,
@@ -204,20 +251,19 @@ function HomePage() {
   const paginatedEvents = filteredEvents.slice(startIndex, endIndex)
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / EVENTS_PER_PAGE))
   const mapLoading = hasSearched ? loading : discoveryLoading
-  const mapTitle = hasSearched ? lastSearch.value : 'Explore the world'
-  const mapMicrocopy = hasSearched
-    ? loading
-      ? 'Searching events...'
-      : `${filteredEvents.length} ${
-          filteredEvents.length === 1 ? 'event' : 'events'
-        } found`
-    : 'Discover live music events from multiple sources'
+  const listLoading = hasSearched ? loading : discoveryLoading
+  const mapTitle = hasSearched
+    ? formatMapTitle(lastSearch.value)
+    : 'Explore the world'
+  const activeTrendingCity =
+    hasSearched && lastSearch.type === 'city' ? lastSearch.value : ''
+  const trendingCities = useMemo(
+    () => buildTrendingCities(filteredEvents),
+    [filteredEvents],
+  )
   const featuredEvents = useMemo(
-    () =>
-      discoveryEvents
-        .filter((event) => event?.name && event?.date)
-        .slice(0, 3),
-    [discoveryEvents],
+    () => buildFeaturedEvents(filteredEvents),
+    [filteredEvents],
   )
   const emptyEventsMessage =
     activeEvents.length > 0 && filteredEvents.length === 0
@@ -259,7 +305,6 @@ function HomePage() {
 
   function resetFilters() {
     setSelectedGenre(DEFAULT_GENRE_FILTER)
-    setSelectedSource(DEFAULT_SOURCE_FILTER)
     setDateFrom('')
     setDateTo('')
     setActiveQuickFilter(DEFAULT_QUICK_FILTER)
@@ -271,11 +316,6 @@ function HomePage() {
     if (activeQuickFilter && !DATE_QUICK_FILTERS.has(activeQuickFilter)) {
       setActiveQuickFilter(DEFAULT_QUICK_FILTER)
     }
-    setCurrentPage(1)
-  }
-
-  function handleSourceChange(value) {
-    setSelectedSource(value)
     setCurrentPage(1)
   }
 
@@ -364,10 +404,43 @@ function HomePage() {
     }
   }
 
+  function handleTrendingReset() {
+    handleSearch({ type: 'city', value: '' })
+  }
+
+  function showExplore(targetId = 'explore-map') {
+    const resolvedTargetId =
+      typeof targetId === 'string' ? targetId : 'explore-map'
+    setActiveView('home')
+    setEventViewMode('map')
+    window.requestAnimationFrame(() => {
+      document.getElementById(resolvedTargetId)?.scrollIntoView({
+        behavior: 'smooth',
+        block: 'start',
+      })
+    })
+  }
+
+  function showHomeTop() {
+    setActiveView('home')
+    window.requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    })
+  }
+
   return (
     <div className="app-page">
-      <AppNavbar />
-      <main className="home-page" id="main-content">
+      <AppNavbar
+        activeView={isAuthenticated ? activeView : 'home'}
+        onShowFavorites={() => setActiveView('favorites')}
+        onExplore={showExplore}
+        onLogoutSuccess={showHomeTop}
+      />
+      <EmailVerificationBanner />
+      {activeView === 'favorites' && isAuthenticated ? (
+        <FavoritesView onExplore={showExplore} />
+      ) : (
+        <main className="home-page" id="main-content">
         <section className="home-main-inner explore-section" id="explore">
           <SiteHeader
             title={
@@ -403,87 +476,88 @@ function HomePage() {
             aria-labelledby="map-showcase-title"
           >
             <div className="content-panel content-panel--map">
-              <div className="map-showcase__toolbar">
-                <div className="map-showcase__title">
-                  <h2 id="map-showcase-title">{mapTitle}</h2>
-                  <p className="map-showcase__microcopy" aria-live="polite">
-                    {mapMicrocopy}
-                  </p>
-                </div>
-                <div
-                  className="map-showcase__view-toggle"
-                  role="group"
-                  aria-label="Event view"
-                >
-                  <button
-                    className="is-active"
-                    type="button"
-                    aria-pressed="true"
-                  >
-                    Map
-                  </button>
-                  <button
-                    type="button"
-                    disabled
-                    title="List view is coming later"
-                  >
-                    List
-                  </button>
-                </div>
+              <div className="map-showcase-title-wrap">
+                <h2 className="map-showcase-title" id="map-showcase-title">
+                  <span>{mapTitle}</span>
+                </h2>
               </div>
               <EventFilters
                 selectedGenre={selectedGenre}
-                selectedSource={selectedSource}
                 dateFrom={dateFrom}
                 dateTo={dateTo}
                 activeQuickFilter={activeQuickFilter}
+                eventViewMode={eventViewMode}
                 onGenreChange={handleGenreChange}
-                onSourceChange={handleSourceChange}
                 onDateFromChange={handleDateFromChange}
                 onDateToChange={handleDateToChange}
                 onQuickFilter={handleQuickFilter}
                 onReset={resetFilters}
+                onEventViewModeChange={setEventViewMode}
               />
-              <MapPreview
-                events={filteredEvents}
-                loading={mapLoading}
-                hasSearched={hasSearched}
-                hasActiveFilters={hasActiveFilters}
-                searchValue={lastSearch.value}
-                discoveryError={discoveryError}
-              />
-            </div>
-            {hasSearched && !loading && !error ? (
-              <div className="content-panel content-panel--events">
-                <EventList
-                  events={paginatedEvents}
-                  searchType={lastSearch.type}
+              {eventViewMode === 'map' ? (
+                <MapPreview
+                  events={filteredEvents}
+                  loading={mapLoading}
+                  hasSearched={hasSearched}
+                  hasActiveFilters={hasActiveFilters}
                   searchValue={lastSearch.value}
-                  totalEventsCount={filteredEvents.length}
-                  currentPage={currentPage}
-                  eventsPerPage={EVENTS_PER_PAGE}
-                  onPreviousPage={handlePreviousPage}
-                  onNextPage={handleNextPage}
-                  emptyMessage={emptyEventsMessage}
+                  discoveryError={discoveryError}
+                  onEventOpen={setSelectedEventDetails}
                 />
-              </div>
-            ) : null}
+              ) : (
+                <div className="map-showcase__list-panel">
+                  {listLoading ? (
+                    <div className="event-list-section__loading" role="status">
+                      Loading events...
+                    </div>
+                  ) : error ? (
+                    <div className="event-list-section__loading" role="status">
+                      Unable to load events.
+                    </div>
+                  ) : (
+                    <EventList
+                      events={paginatedEvents}
+                      searchType={lastSearch.type}
+                      searchValue={lastSearch.value}
+                      totalEventsCount={filteredEvents.length}
+                      currentPage={currentPage}
+                      eventsPerPage={EVENTS_PER_PAGE}
+                      onPreviousPage={handlePreviousPage}
+                      onNextPage={handleNextPage}
+                      onEventOpen={setSelectedEventDetails}
+                      emptyMessage={emptyEventsMessage}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
           </section>
         </section>
 
         <div className="discovery-highlights">
           <TrendingCities
+            activeCity={activeTrendingCity}
+            cities={trendingCities}
+            loading={listLoading}
             onCitySelect={(city) => handleSearch({ type: 'city', value: city })}
+            onResetCity={handleTrendingReset}
           />
-          <FeaturedEvents events={featuredEvents} loading={discoveryLoading} />
+          <FeaturedEvents events={featuredEvents} loading={listLoading} />
         </div>
         <HowItWorks />
         <SourcesStrip />
         <AboutSoundSpot />
         <FinalCTA />
-      </main>
+        </main>
+      )}
 
       <AppFooter />
+      {selectedEventDetails ? (
+        <EventDetailsModal
+          event={selectedEventDetails}
+          onClose={() => setSelectedEventDetails(null)}
+        />
+      ) : null}
     </div>
   )
 }

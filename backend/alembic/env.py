@@ -5,7 +5,7 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import settings
 from app.db.base import Base
-from app.models import EventFavorite, User
+from app.models import AuthToken, EventFavorite, User
 
 config = context.config
 
@@ -20,7 +20,7 @@ config.set_main_option(
 target_metadata = Base.metadata
 
 # Keep model imports explicit so Alembic always sees their tables.
-_models = (User, EventFavorite)
+_models = (User, EventFavorite, AuthToken)
 
 
 def run_migrations_offline() -> None:

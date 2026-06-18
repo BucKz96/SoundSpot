@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import ArtistDetailsModal from './ArtistDetailsModal'
 import ProviderBadge from './ProviderBadge'
+import useEventFavoriteAction from './useEventFavoriteAction'
 
 const GENERIC_ARTIST_NAMES = new Set([
   'artist',
@@ -66,7 +67,7 @@ function displayDateParts(date) {
   }
 }
 
-function EventCard({ event }) {
+function EventCard({ event, onOpenDetails }) {
   const [showArtistDetails, setShowArtistDetails] = useState(false)
   const title = (event.name || '').trim() || 'Untitled event'
   const artist = displayArtist(event.artist)
@@ -77,9 +78,65 @@ function EventCard({ event }) {
   const time = displayTime(event.time)
   const dateParts = displayDateParts(event.date)
   const ticketUrl = (event.ticket_url || '').trim()
+  const {
+    favorite,
+    favoritePending,
+    favoriteError,
+    toggleFavorite,
+  } = useEventFavoriteAction(event)
+  const favoriteLabel = favorite
+    ? `Remove ${title} from favorites`
+    : `Add ${title} to favorites`
+
+  function openDetails() {
+    onOpenDetails?.(event)
+  }
+
+  function handleCardKeyDown(keyEvent) {
+    if (!onOpenDetails) return
+    if (keyEvent.key !== 'Enter' && keyEvent.key !== ' ') return
+    if (keyEvent.target.closest('button, a')) return
+    keyEvent.preventDefault()
+    openDetails()
+  }
 
   return (
-    <article className="event-card">
+    <article
+      className={onOpenDetails ? 'event-card event-card--interactive' : 'event-card'}
+      role={onOpenDetails ? 'button' : undefined}
+      tabIndex={onOpenDetails ? 0 : undefined}
+      onClick={onOpenDetails ? openDetails : undefined}
+      onKeyDown={handleCardKeyDown}
+    >
+      <button
+        className={[
+          'event-card__favorite',
+          favorite ? 'is-favorite' : '',
+          favoritePending ? 'is-loading' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
+        type="button"
+        onClick={(clickEvent) => {
+          clickEvent.stopPropagation()
+          toggleFavorite()
+        }}
+        disabled={favoritePending}
+        aria-pressed={favorite}
+        aria-label={favoritePending ? 'Updating favorite' : favoriteLabel}
+        title={
+          favoritePending
+            ? 'Updating favorite'
+            : favorite
+              ? 'Remove from favorites'
+              : 'Add to favorites'
+        }
+      >
+        <span className="event-card__favorite-spinner" aria-hidden="true" />
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 20.6 3.8 13A5.4 5.4 0 0 1 11.4 5.3l.6.7.6-.7a5.4 5.4 0 0 1 7.6 7.7L12 20.6Z" />
+        </svg>
+      </button>
       <div className="event-card__topline">
         <div className="event-card__date-badge" aria-label={date}>
           <span className="event-card__date-day">{dateParts.day}</span>
@@ -92,7 +149,10 @@ function EventCard({ event }) {
             <button
               className="event-card__artist-action"
               type="button"
-              onClick={() => setShowArtistDetails(true)}
+              onClick={(clickEvent) => {
+                clickEvent.stopPropagation()
+                setShowArtistDetails(true)
+              }}
             >
               <span aria-hidden="true" />
               View artist
@@ -112,17 +172,25 @@ function EventCard({ event }) {
         </div>
         <div className="event-card__row">
           <dt>Time</dt>
-          <dd>{time ? `${date} · ${time}` : date}</dd>
+          <dd>{time ? `${date} - ${time}` : date}</dd>
         </div>
       </dl>
 
-      <div className="event-card__actions">
+      <div
+        className="event-card__actions"
+        onClick={(clickEvent) => clickEvent.stopPropagation()}
+      >
         <ProviderBadge
           source={event.source}
           href={ticketUrl}
           unavailable={!ticketUrl}
         />
       </div>
+      {favoriteError ? (
+        <p className="event-card__favorite-error" role="alert">
+          {favoriteError}
+        </p>
+      ) : null}
       {showArtistDetails ? (
         <ArtistDetailsModal
           artistName={event.artist.trim()}
