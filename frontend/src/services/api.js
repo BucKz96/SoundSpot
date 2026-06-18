@@ -2,6 +2,7 @@ const defaultBaseUrl = `${window.location.protocol}//${window.location.hostname}
 const baseUrl = import.meta.env.VITE_API_BASE_URL || defaultBaseUrl
 const spotifyArtistCache = new Map()
 const spotifyArtistRequests = new Map()
+const citySearchRequests = new Map()
 let discoveryEventsRequest = null
 
 export class AuthApiError extends Error {
@@ -192,9 +193,19 @@ export async function getEvents() {
 
 export async function getEventsByCity(city) {
   const cityParam = encodeURIComponent(city)
-  const response = await fetch(`${baseUrl}/api/events/search?city=${cityParam}`)
+  const cacheKey = city.trim().toLocaleLowerCase()
+  if (citySearchRequests.has(cacheKey)) {
+    return citySearchRequests.get(cacheKey)
+  }
 
-  return getJsonArray(response, 'Failed to search events')
+  const request = fetch(`${baseUrl}/api/events/search?city=${cityParam}`)
+    .then((response) => getJsonArray(response, 'Failed to search events'))
+    .finally(() => {
+      citySearchRequests.delete(cacheKey)
+    })
+
+  citySearchRequests.set(cacheKey, request)
+  return request
 }
 
 export async function getDiscoveryEvents() {

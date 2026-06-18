@@ -1,3 +1,5 @@
+import logging
+
 from fastapi import APIRouter, HTTPException, Request
 
 from app.core.config import settings
@@ -20,6 +22,7 @@ from app.services.ticketmaster_service import (
 from app.utils.city_normalizer import normalize_city_name
 
 router = APIRouter(prefix="/events", tags=["events"])
+logger = logging.getLogger(__name__)
 
 
 def has_discovery_provider_credentials() -> bool:
@@ -79,6 +82,8 @@ async def search_events(
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     except TicketmasterAPIError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logger.warning("Ticketmaster search failed error_type=%s", type(exc).__name__)
+        return []
     except EventAggregationError as exc:
-        raise HTTPException(status_code=502, detail=str(exc)) from exc
+        logger.warning("City search aggregation failed error_type=%s", type(exc).__name__)
+        return []

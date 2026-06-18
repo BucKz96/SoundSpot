@@ -1,4 +1,5 @@
 CITY_ALIASES = {
+    "londre": "London",
     "londres": "London",
     "bruxelles": "Brussels",
     "milan": "Milan",
